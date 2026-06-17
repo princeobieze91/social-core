@@ -1,0 +1,6 @@
+{
+  "name": "SocialCore",
+  "description": "Unified collaborative social media core with calendar, real-time feedback, approvals flow, and platform previews.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

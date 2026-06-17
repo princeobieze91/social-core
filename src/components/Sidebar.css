@@ -1,0 +1,102 @@
+/* src/components/Sidebar.css */
+
+.sidebar {
+  background-color: #333;
+  color: white;
+  height: 100%; /* Occupy full height of its parent */
+  position: relative; /* For positioning the toggle button */
+  overflow-y: auto; /* Allows scrolling if content exceeds height */
+  transition: transform 0.3s ease-in-out; /* Smooth transition for opening/closing */
+}
+
+.sidebar-content {
+  padding: 1.5rem 1rem;
+}
+
+.sidebar nav ul {
+  list-style: none;
+}
+
+.sidebar nav ul li {
+  margin-bottom: 1rem;
+}
+
+.sidebar nav ul li a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.1rem;
+  display: block; /* Makes the whole area clickable */
+  padding: 0.5rem 0;
+  transition: color 0.2s ease;
+}
+
+.sidebar nav ul li a:hover {
+  color: #007bff; /* Highlight color on hover */
+}
+
+/* --- Sidebar Toggle Button (for mobile) --- */
+.sidebar-toggle-button {
+  display: none; /* Hidden by default on larger screens */
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  z-index: 10; /* Ensure it's above other content */
+}
+
+/* --- Responsive Adjustments --- */
+
+/* Styles for larger screens (e.g., tablets and desktops) */
+@media (min-width: 768px) {
+  .sidebar {
+    width: 250px; /* Fixed width as defined in App.css */
+    transform: translateX(0); /* Ensure it's always visible */
+    position: relative; /* Reset position for layout */
+  }
+
+  .sidebar-toggle-button {
+    display: none; /* Hide the toggle button */
+  }
+
+  /* Adjust content padding if sidebar is always visible */
+  .sidebar-content {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* Styles for mobile screens */
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed; /* Fixed position to overlay content */
+    top: 0;
+    left: 0;
+    width: 250px; /* Or adjust width as needed */
+    height: 100vh; /* Full viewport height */
+    transform: translateX(-100%); /* Hidden by default */
+    z-index: 999; /* Ensure it's above most content */
+    background-color: #222; /* Slightly different background for overlay */
+  }
+
+  .sidebar.open {
+    transform: translateX(0); /* Slide in when open */
+  }
+
+  .sidebar-toggle-button {
+    display: block; /* Show the toggle button */
+  }
+
+  /* Adjust body to prevent scrolling when sidebar is open (optional) */
+  body.sidebar-open {
+    overflow: hidden;
+  }
+
+  /* Ensure links are large enough to tap */
+  .sidebar nav ul li a {
+    font-size: 1rem;
+    padding: 0.75rem 0;
+  }
+}

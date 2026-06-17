@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background-color: #f0f0f0;
+  padding: 1rem;
+  text-align: center;
+}
+
+.app-main-content {
+  display: flex;
+  flex-grow: 1; /* Allows main content to take available space */
+  flex-direction: column; /* Stack items vertically on small screens */
+}
+
+.sidebar-section {
+  /* Styles for the sidebar */
+  background-color: #e0e0e0;
+  padding: 1rem;
+  width: 100%; /* Full width on mobile */
+  order: 1; /* Or adjust order as needed */
+}
+
+.content-section {
+  /* Styles for the main content */
+  padding: 1rem;
+  width: 100%; /* Full width on mobile */
+  order: 2;
+}
+
+.app-footer {
+  background-color: #f0f0f0;
+  padding: 1rem;
+  text-align: center;
+  margin-top: auto; /* Pushes footer to the bottom */
+}
+
+/* --- Responsive adjustments for larger screens --- */
+@media (min-width: 768px) { /* Example breakpoint for tablets and up */
+  .app-main-content {
+    flex-direction: row; /* Side-by-side layout on larger screens */
+  }
+
+  .sidebar-section {
+    width: 250px; /* Fixed width for sidebar on larger screens */
+    flex-shrink: 0; /* Prevent sidebar from shrinking */
+    order: 1;
+  }
+
+  .content-section {
+    width: auto; /* Allow content to take remaining space */
+    flex-grow: 1; /* Content grows to fill available space */
+    order: 2;
+  }
+}
+
+/* Add more media queries for different breakpoints as needed */
