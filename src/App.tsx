@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import LoginRegister from "./components/LoginRegister";
+import OAuthConsent from "./components/OAuthConsent";
 import { SocialPost, TeamMember, PostComment, ActiveView, PostAttachment } from "./types";
 import { INITIAL_POSTS, INITIAL_TEAM_MEMBERS, PLATFORMS_CONFIG, WORKSPACES } from "./mockData";
 import { supabase } from "./supabaseClient";
@@ -75,6 +76,7 @@ export default function App() {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMobileCollabOpen, setIsMobileCollabOpen] = useState(false);
+  const [consentProvider, setConsentProvider] = useState<string | null>(null);
   
   // Bulk selection list check state
   const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
@@ -694,8 +696,21 @@ export default function App() {
     }
   };
 
+  // Check for OAuth consent route
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get("provider");
+    if (window.location.pathname === "/oauth/consent" && provider) {
+      setConsentProvider(provider);
+    }
+  }, []);
+
+  if (consentProvider) {
+    return <OAuthConsent provider={consentProvider} onBack={() => { setConsentProvider(null); window.history.replaceState({}, "", "/"); }} />;
+  }
+
   if (!currentUser) {
-    return <LoginRegister onLoginSuccess={(u, t) => { setCurrentUser(u); setAuthToken(t || null); }} />;
+    return <LoginRegister onLoginSuccess={(u, t) => { setCurrentUser(u); setAuthToken(t || null); }} onSocialLogin={(p) => { setConsentProvider(p); window.history.pushState({}, "", `/oauth/consent?provider=${p}`); }} />;
   }
 
   return (

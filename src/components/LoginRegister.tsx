@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   Sparkles, 
   Lock, 
@@ -13,13 +13,13 @@ import {
   Instagram
 } from "lucide-react";
 import { TeamMember } from "../types";
-import { supabase } from "../supabaseClient";
 
 interface LoginRegisterProps {
   onLoginSuccess: (user: TeamMember, token: string) => void;
+  onSocialLogin: (provider: string) => void;
 }
 
-export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
+export default function LoginRegister({ onLoginSuccess, onSocialLogin }: LoginRegisterProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,30 +81,7 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
   const handleSocialAuth = async (platformName: "Google" | "Facebook" | "Instagram") => {
     setErrorMsg("");
     setSuccessMsg("");
-    setSocialLoading(platformName);
-
-    const providerMap = {
-      Google: "google" as const,
-      Facebook: "facebook" as const,
-      Instagram: "facebook" as const
-    };
-
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: providerMap[platformName],
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: platformName === "Instagram" ? { scope: "email profile" } : undefined
-        }
-      });
-
-      if (error) throw error;
-
-      setSuccessMsg(`Redirecting to ${platformName}...`);
-    } catch (e: any) {
-      setErrorMsg(e.message || `${platformName} authentication failed`);
-      setSocialLoading(null);
-    }
+    onSocialLogin(platformName.toLowerCase());
   };
 
   const getActiveSocialLoadingMessage = () => {
