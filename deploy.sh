@@ -27,7 +27,7 @@ fi
 cd "$APP_DIR"
 
 # 5. Install dependencies & build
-npm ci
+npm install
 npm run build
 
 # 6. Setup environment
