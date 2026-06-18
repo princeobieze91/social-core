@@ -1,4 +1,5 @@
 import path from "path";
+import crypto from "crypto";
 
 // Load .env FIRST before anything else
 import dotenv from "dotenv";
@@ -276,6 +277,67 @@ app.post("/api/auth/oauth", async (req: express.Request, res: express.Response) 
   } catch (error: any) {
     console.error("OAuth error:", error);
     res.status(500).json({ error: error.message || "OAuth authentication failed" });
+  }
+});
+
+// POST /api/auth/auth0 - Handle Auth0 token verification
+const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
+const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
+
+async function verifyAuth0Token(idToken: string): Promise<any> {
+  const jwksUrl = `https://${AUTH0_DOMAIN}/.well-known/jwks.json`;
+  const res = await fetch(jwksUrl);
+  const jwks = await res.json();
+
+  const header = JSON.parse(Buffer.from(idToken.split(".")[0], "base64url").toString());
+  const key = jwks.keys.find((k: any) => k.kid === header.kid);
+  if (!key) throw new Error("Invalid Auth0 token: key not found");
+
+  const publicKey = crypto.createPublicKey({
+    format: "jwk",
+    key: { kty: key.kty, n: key.n, e: key.e }
+  });
+
+  const decoded = jwt.verify(idToken, publicKey, {
+    algorithms: ["RS256"],
+    issuer: `https://${AUTH0_DOMAIN}/`,
+    audience: AUTH0_CLIENT_ID
+  });
+
+  return decoded;
+}
+
+app.post("/api/auth/auth0", async (req: express.Request, res: express.Response) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      res.status(400).json({ error: "ID token is required" });
+      return;
+    }
+
+    const payload = await verifyAuth0Token(idToken);
+    const email = payload.email || "";
+    const name = payload.name || payload.nickname || email.split("@")[0] || "Auth0 User";
+    const avatarUrl = payload.picture || "";
+
+    let user = await findUserByEmail(email.toLowerCase());
+
+    if (!user) {
+      const bcryptPassword = await bcrypt.hash("auth0-" + email, 10);
+      user = await createUser(name, email.toLowerCase(), bcryptPassword, "Manager");
+    }
+
+    if (!user) {
+      res.status(500).json({ error: "Failed to create or find user" });
+      return;
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
+    const { password: _, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  } catch (error: any) {
+    console.error("Auth0 error:", error);
+    res.status(500).json({ error: error.message || "Auth0 authentication failed" });
   }
 });
 

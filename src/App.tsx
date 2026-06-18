@@ -130,33 +130,39 @@ export default function App() {
     }
   }, [authToken]);
 
-  // Handle Supabase OAuth callback
+  // Handle Auth0 OAuth callback (hash-based tokens)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const user = session.user;
-        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User";
-        const email = user.email || "";
-        const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get("access_token");
+      const idToken = params.get("id_token");
+      const state = params.get("state");
 
-        try {
-          const res = await fetch("/api/auth/oauth", {
+      const savedState = localStorage.getItem("auth0_state");
+      if (state && savedState && state === savedState) {
+        localStorage.removeItem("auth0_state");
+        localStorage.removeItem("auth0_nonce");
+
+        window.history.replaceState({}, "", window.location.pathname);
+
+        if (idToken) {
+          fetch("/api/auth/auth0", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, email, avatarUrl, provider: session.user.app_metadata?.provider || "unknown" })
-          });
-          const data = await res.json();
-          if (res.ok && data.token) {
-            setCurrentUser(data.user);
-            setAuthToken(data.token);
-          }
-        } catch (e) {
-          console.error("OAuth login failed:", e);
+            body: JSON.stringify({ idToken, accessToken })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.token && data.user) {
+                setCurrentUser(data.user);
+                setAuthToken(data.token);
+              }
+            })
+            .catch(e => console.error("Auth0 login failed:", e));
         }
       }
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
   // Save to local storage on changes
@@ -710,7 +716,7 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return <LoginRegister onLoginSuccess={(u, t) => { setCurrentUser(u); setAuthToken(t || null); }} onSocialLogin={(p) => { setConsentProvider(p); window.history.pushState({}, "", `/oauth/consent?provider=${p}`); }} />;
+    return <LoginRegister onLoginSuccess={(u, t) => { setCurrentUser(u); setAuthToken(t || null); }} />;
   }
 
   return (

@@ -16,10 +16,22 @@ import { TeamMember } from "../types";
 
 interface LoginRegisterProps {
   onLoginSuccess: (user: TeamMember, token: string) => void;
-  onSocialLogin: (provider: string) => void;
 }
 
-export default function LoginRegister({ onLoginSuccess, onSocialLogin }: LoginRegisterProps) {
+const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
+const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
+const REDIRECT_URI = window.location.origin;
+
+function redirectToAuth0(connection: string) {
+  const state = Math.random().toString(36).substring(2);
+  const nonce = Math.random().toString(36).substring(2);
+  localStorage.setItem("auth0_state", state);
+  localStorage.setItem("auth0_nonce", nonce);
+  const url = `https://${AUTH0_DOMAIN}/authorize?client_id=${AUTH0_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token id_token&scope=openid profile email&connection=${connection}&state=${state}&nonce=${nonce}`;
+  window.location.href = url;
+}
+
+export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,7 +93,12 @@ export default function LoginRegister({ onLoginSuccess, onSocialLogin }: LoginRe
   const handleSocialAuth = async (platformName: "Google" | "Facebook" | "Instagram") => {
     setErrorMsg("");
     setSuccessMsg("");
-    onSocialLogin(platformName.toLowerCase());
+    const connectionMap: Record<string, string> = {
+      Google: "google-oauth2",
+      Facebook: "facebook",
+      Instagram: "instagram"
+    };
+    redirectToAuth0(connectionMap[platformName]);
   };
 
   const getActiveSocialLoadingMessage = () => {

@@ -1,29 +1,36 @@
 import React, { useState } from "react";
 import { Shield, CheckCircle, ArrowRight, Lock } from "lucide-react";
-import { supabase } from "../supabaseClient";
+
+const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
+const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
+const REDIRECT_URI = window.location.origin;
 
 const PROVIDER_CONFIG: Record<string, {
   name: string;
   color: string;
   icon: string;
+  connection: string;
   scopes: string[];
 }> = {
   google: {
     name: "Google",
     color: "from-red-500 to-yellow-500",
     icon: "G",
+    connection: "google-oauth2",
     scopes: ["View your name", "View your email address", "View your profile picture"]
   },
   facebook: {
     name: "Facebook",
     color: "from-blue-600 to-blue-400",
     icon: "f",
+    connection: "facebook",
     scopes: ["View your name", "View your email address", "View your profile picture", "Access your friends list"]
   },
   instagram: {
     name: "Instagram",
     color: "from-purple-600 via-pink-500 to-orange-400",
     icon: "\ud83d\udcf8",
+    connection: "instagram",
     scopes: ["View your profile", "View your email address", "View your media"]
   }
 };
@@ -38,24 +45,17 @@ export default function OAuthConsent({ provider, onBack }: OAuthConsentProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleAuthorize = async () => {
+  const handleAuthorize = () => {
     setLoading(true);
     setError("");
 
-    try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: provider as any,
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: provider === "instagram" ? { scope: "email profile" } : undefined
-        }
-      });
+    const state = Math.random().toString(36).substring(2);
+    const nonce = Math.random().toString(36).substring(2);
+    localStorage.setItem("auth0_state", state);
+    localStorage.setItem("auth0_nonce", nonce);
 
-      if (authError) throw authError;
-    } catch (e: any) {
-      setError(e.message || "Authentication failed");
-      setLoading(false);
-    }
+    const url = `https://${AUTH0_DOMAIN}/authorize?client_id=${AUTH0_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token id_token&scope=openid profile email&connection=${config.connection}&state=${state}&nonce=${nonce}`;
+    window.location.href = url;
   };
 
   return (
