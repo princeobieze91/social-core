@@ -1,7 +1,9 @@
 import path from "path";
-import { fileURLToPath } from "url";
+
+// Load .env FIRST before anything else
 import dotenv from "dotenv";
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+dotenv.config({ path: path.join(process.cwd(), ".env") });
+
 import { WebSocket } from "ws";
 (globalThis as any).WebSocket = WebSocket;
 import express from "express";
