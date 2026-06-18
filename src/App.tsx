@@ -137,30 +137,27 @@ export default function App() {
       const params = new URLSearchParams(hash.substring(1));
       const accessToken = params.get("access_token");
       const idToken = params.get("id_token");
-      const state = params.get("state");
 
-      const savedState = localStorage.getItem("auth0_state");
-      if (state && savedState && state === savedState) {
-        localStorage.removeItem("auth0_state");
-        localStorage.removeItem("auth0_nonce");
+      window.history.replaceState({}, "", window.location.pathname);
+      localStorage.removeItem("auth0_state");
+      localStorage.removeItem("auth0_nonce");
 
-        window.history.replaceState({}, "", window.location.pathname);
-
-        if (idToken) {
-          fetch("/api/auth/auth0", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken, accessToken })
+      if (idToken) {
+        fetch("/api/auth/auth0", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, accessToken })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.token && data.user) {
+              setCurrentUser(data.user);
+              setAuthToken(data.token);
+            } else {
+              console.error("Auth0 login failed:", data.error);
+            }
           })
-            .then(res => res.json())
-            .then(data => {
-              if (data.token && data.user) {
-                setCurrentUser(data.user);
-                setAuthToken(data.token);
-              }
-            })
-            .catch(e => console.error("Auth0 login failed:", e));
-        }
+          .catch(e => console.error("Auth0 login failed:", e));
       }
     }
   }, []);

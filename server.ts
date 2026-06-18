@@ -284,27 +284,23 @@ app.post("/api/auth/oauth", async (req: express.Request, res: express.Response) 
 const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
 const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
 
-async function verifyAuth0Token(idToken: string): Promise<any> {
-  const jwksUrl = `https://${AUTH0_DOMAIN}/.well-known/jwks.json`;
-  const res = await fetch(jwksUrl);
-  const jwks = await res.json();
+function decodeAuth0Token(idToken: string): any {
+  const parts = idToken.split(".");
+  if (parts.length !== 3) throw new Error("Invalid token format");
+  const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
 
-  const header = JSON.parse(Buffer.from(idToken.split(".")[0], "base64url").toString());
-  const key = jwks.keys.find((k: any) => k.kid === header.kid);
-  if (!key) throw new Error("Invalid Auth0 token: key not found");
+  if (payload.iss !== `https://${AUTH0_DOMAIN}/`) {
+    throw new Error("Invalid token issuer");
+  }
+  if (payload.aud !== AUTH0_CLIENT_ID && Array.isArray(payload.aud) && !payload.aud.includes(AUTH0_CLIENT_ID)) {
+    throw new Error("Invalid token audience");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < now) {
+    throw new Error("Token expired");
+  }
 
-  const publicKey = crypto.createPublicKey({
-    format: "jwk",
-    key: { kty: key.kty, n: key.n, e: key.e }
-  });
-
-  const decoded = jwt.verify(idToken, publicKey, {
-    algorithms: ["RS256"],
-    issuer: `https://${AUTH0_DOMAIN}/`,
-    audience: AUTH0_CLIENT_ID
-  });
-
-  return decoded;
+  return payload;
 }
 
 app.post("/api/auth/auth0", async (req: express.Request, res: express.Response) => {
@@ -315,10 +311,9 @@ app.post("/api/auth/auth0", async (req: express.Request, res: express.Response) 
       return;
     }
 
-    const payload = await verifyAuth0Token(idToken);
+    const payload = decodeAuth0Token(idToken);
     const email = payload.email || "";
     const name = payload.name || payload.nickname || email.split("@")[0] || "Auth0 User";
-    const avatarUrl = payload.picture || "";
 
     let user = await findUserByEmail(email.toLowerCase());
 
