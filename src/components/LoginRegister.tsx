@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Sparkles, 
   Lock, 
@@ -13,6 +13,7 @@ import {
   Instagram
 } from "lucide-react";
 import { TeamMember } from "../types";
+import { supabase } from "../supabaseClient";
 
 interface LoginRegisterProps {
   onLoginSuccess: (user: TeamMember, token: string) => void;
@@ -77,66 +78,33 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
     }
   };
 
-  const handleSocialAuth = (platformName: "Google" | "Facebook" | "Instagram") => {
+  const handleSocialAuth = async (platformName: "Google" | "Facebook" | "Instagram") => {
     setErrorMsg("");
     setSuccessMsg("");
     setSocialLoading(platformName);
 
-    const socialMockups = {
-      Google: {
-        name: "Alex Rivera (via Google)",
-        email: "alex.rivera.google@gmail.com",
-        password: "google-oauth-socialcore-2026"
-      },
-      Facebook: {
-        name: "Jessica Vance (via Facebook)",
-        email: "jessica.vance.fb@outlook.com",
-        password: "facebook-oauth-socialcore-2026"
-      },
-      Instagram: {
-        name: "Sienna Woods (via Instagram)",
-        email: "sienna.insta.creatives@gmail.com",
-        password: "instagram-oauth-socialcore-2026"
-      }
+    const providerMap = {
+      Google: "google" as const,
+      Facebook: "facebook" as const,
+      Instagram: "facebook" as const
     };
 
-    const matchedProfile = socialMockups[platformName];
-
-    fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: matchedProfile.name,
-        email: matchedProfile.email,
-        password: matchedProfile.password,
-        role: "Manager"
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.token) {
-          setSuccessMsg(`Successfully authenticated via ${platformName} Secure API Handshake!`);
-          setTimeout(() => onLoginSuccess(data.user, data.token), 800);
-        } else {
-          return fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: matchedProfile.email, password: matchedProfile.password })
-          }).then(r => r.json()).then(d => {
-            if (d.token) {
-              setSuccessMsg(`Connected via ${platformName}!`);
-              setTimeout(() => onLoginSuccess(d.user, d.token), 800);
-            } else {
-              setErrorMsg("Social auth simulation failed");
-              setSocialLoading(null);
-            }
-          });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: providerMap[platformName],
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: platformName === "Instagram" ? { scope: "email profile" } : undefined
         }
-      })
-      .catch(() => {
-        setErrorMsg("Social auth simulation failed");
-        setSocialLoading(null);
       });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Redirecting to ${platformName}...`);
+    } catch (e: any) {
+      setErrorMsg(e.message || `${platformName} authentication failed`);
+      setSocialLoading(null);
+    }
   };
 
   const getActiveSocialLoadingMessage = () => {

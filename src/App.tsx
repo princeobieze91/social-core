@@ -40,6 +40,7 @@ import Sidebar from "./components/Sidebar";
 import LoginRegister from "./components/LoginRegister";
 import { SocialPost, TeamMember, PostComment, ActiveView, PostAttachment } from "./types";
 import { INITIAL_POSTS, INITIAL_TEAM_MEMBERS, PLATFORMS_CONFIG, WORKSPACES } from "./mockData";
+import { supabase } from "./supabaseClient";
 
 export default function App() {
   // --- Persistent & UI States ---
@@ -126,6 +127,35 @@ export default function App() {
       localStorage.removeItem("socialcore_auth_token");
     }
   }, [authToken]);
+
+  // Handle Supabase OAuth callback
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        const user = session.user;
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User";
+        const email = user.email || "";
+        const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || "";
+
+        try {
+          const res = await fetch("/api/auth/oauth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, avatarUrl, provider: session.user.app_metadata?.provider || "unknown" })
+          });
+          const data = await res.json();
+          if (res.ok && data.token) {
+            setCurrentUser(data.user);
+            setAuthToken(data.token);
+          }
+        } catch (e) {
+          console.error("OAuth login failed:", e);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Save to local storage on changes
   useEffect(() => {

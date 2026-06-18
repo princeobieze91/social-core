@@ -249,6 +249,36 @@ app.post("/api/auth/login", async (req: express.Request, res: express.Response) 
   }
 });
 
+// POST /api/auth/oauth - Handle Supabase OAuth callback
+app.post("/api/auth/oauth", async (req: express.Request, res: express.Response) => {
+  try {
+    const { name, email, avatarUrl, provider } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+
+    let user = await findUserByEmail(email.toLowerCase());
+
+    if (!user) {
+      const bcryptPassword = await bcrypt.hash("oauth-" + provider + "-" + email, 10);
+      user = await createUser(name, email.toLowerCase(), bcryptPassword, "Manager");
+    }
+
+    if (!user) {
+      res.status(500).json({ error: "Failed to create or find user" });
+      return;
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
+    const { password: _, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  } catch (error: any) {
+    console.error("OAuth error:", error);
+    res.status(500).json({ error: error.message || "OAuth authentication failed" });
+  }
+});
+
 // GET /api/auth/me
 app.get("/api/auth/me", authMiddleware, async (req: express.Request, res: express.Response) => {
   try {
