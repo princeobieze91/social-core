@@ -1,8 +1,10 @@
-import "dotenv/config";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 import { WebSocket } from "ws";
 (globalThis as any).WebSocket = WebSocket;
 import express from "express";
-import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import bcrypt from "bcryptjs";
