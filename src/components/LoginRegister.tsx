@@ -85,20 +85,22 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
     const socialMockups = {
       Google: {
         name: "Alex Rivera (via Google)",
-        email: "alex.rivera.google@gmail.com"
+        email: "alex.rivera.google@gmail.com",
+        password: "google-oauth-socialcore-2026"
       },
       Facebook: {
         name: "Jessica Vance (via Facebook)",
-        email: "jessica.vance.fb@outlook.com"
+        email: "jessica.vance.fb@outlook.com",
+        password: "facebook-oauth-socialcore-2026"
       },
       Instagram: {
         name: "Sienna Woods (via Instagram)",
-        email: "sienna.insta.creatives@gmail.com"
+        email: "sienna.insta.creatives@gmail.com",
+        password: "instagram-oauth-socialcore-2026"
       }
     };
 
     const matchedProfile = socialMockups[platformName];
-    const tempPass = "social-oauth-" + Date.now();
 
     fetch("/api/auth/register", {
       method: "POST",
@@ -106,7 +108,7 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
       body: JSON.stringify({
         name: matchedProfile.name,
         email: matchedProfile.email,
-        password: tempPass,
+        password: matchedProfile.password,
         role: "Manager"
       })
     })
@@ -119,7 +121,7 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
           return fetch("/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: matchedProfile.email, password: tempPass })
+            body: JSON.stringify({ email: matchedProfile.email, password: matchedProfile.password })
           }).then(r => r.json()).then(d => {
             if (d.token) {
               setSuccessMsg(`Connected via ${platformName}!`);
