@@ -41,7 +41,15 @@ import LoginRegister from "./components/LoginRegister";
 import OAuthConsent from "./components/OAuthConsent";
 import { SocialPost, TeamMember, PostComment, ActiveView, PostAttachment } from "./types";
 import { INITIAL_POSTS, INITIAL_TEAM_MEMBERS, PLATFORMS_CONFIG, WORKSPACES } from "./mockData";
-import { supabase } from "./supabaseClient";
+import {
+  apiGetPosts,
+  apiCreatePost,
+  apiUpdatePost,
+  apiDeletePost,
+  apiUpdatePostStatus,
+  apiAddComment,
+  apiGetWorkspaces,
+} from "./api";
 
 export default function App() {
   // --- Persistent & UI States ---
@@ -162,6 +170,56 @@ export default function App() {
     }
   }, []);
 
+  // Load posts from API when user is authenticated, fallback to localStorage
+  useEffect(() => {
+    if (!currentUser || !authToken) return;
+    apiGetPosts(currentWorkspace)
+      .then(({ posts: apiPosts }) => {
+        if (apiPosts && apiPosts.length > 0) {
+          const normalized: SocialPost[] = apiPosts.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            content: p.content,
+            platforms: p.platforms || ["facebook"],
+            status: p.status || "draft",
+            scheduledAt: p.scheduled_at || p.created_at,
+            attachments: (p.attachments || []).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              url: a.url,
+              size: a.size,
+            })),
+            comments: (p.comments || []).map((c: any) => ({
+              id: c.id,
+              author: {
+                id: c.author_id,
+                name: c.author_name,
+                role: c.author_role || "",
+                avatarUrl: c.author_avatar_url || "",
+                isAI: c.is_ai,
+                persona: c.persona,
+              },
+              text: c.text,
+              createdAt: c.created_at,
+              suggestions: c.suggestions || [],
+            })),
+            logs: (p.logs || []).map((l: any) => ({
+              id: l.id,
+              user: { name: l.user_name, role: l.user_role },
+              action: l.action,
+              timestamp: l.created_at,
+            })),
+            tags: [],
+          }));
+          setPosts(normalized);
+        }
+      })
+      .catch(() => {
+        // API unavailable - continue with localStorage data
+      });
+  }, [currentUser, authToken, currentWorkspace]);
+
   // Save to local storage on changes
   useEffect(() => {
     localStorage.setItem("socialcore_posts", JSON.stringify(posts));
@@ -272,46 +330,101 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // Submit Post Form (Create or Write-back)
-  const handleSavePost = (e: React.FormEvent) => {
+  // Submit Post Form (Create or Write-back) - tries API first, falls back to localStorage
+  const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle || !formContent) return;
 
-    const postToSave: SocialPost = {
-      id: editingPost ? editingPost.id : "post-" + Date.now(),
-      title: formTitle,
-      content: formContent,
-      platforms: formPlatforms,
-      status: editingPost ? editingPost.status : "draft",
-      scheduledAt: new Date(formScheduledAt).toISOString(),
-      attachments: formAttachments,
-      tags: formTags,
-      comments: editingPost ? editingPost.comments : [],
-      logs: editingPost 
-        ? [
-            ...editingPost.logs, 
-            {
-              id: "log-" + Date.now(),
-              user: { name: actingUser.name, role: actingUser.role },
-              action: `Modified post attributes`,
-              timestamp: new Date().toISOString()
-            }
-          ]
-        : [
-            {
-              id: "log-" + Date.now(),
-              user: { name: actingUser.name, role: actingUser.role },
-              action: `Created new draft`,
-              timestamp: new Date().toISOString()
-            }
-          ]
-    };
+    const scheduledISO = new Date(formScheduledAt).toISOString();
 
     if (editingPost) {
-      setPosts(prev => prev.map(p => p.id === editingPost.id ? postToSave : p));
+      // Update via API
+      const optimistic: SocialPost = {
+        ...editingPost,
+        title: formTitle,
+        content: formContent,
+        platforms: formPlatforms,
+        scheduledAt: scheduledISO,
+        attachments: formAttachments,
+        tags: formTags,
+        logs: [
+          ...editingPost.logs,
+          {
+            id: "log-" + Date.now(),
+            user: { name: actingUser.name, role: actingUser.role },
+            action: "Modified post attributes",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+      setPosts((prev) => prev.map((p) => (p.id === editingPost.id ? optimistic : p)));
+      try {
+        await apiUpdatePost(editingPost.id, {
+          title: formTitle,
+          content: formContent,
+          platforms: formPlatforms,
+          scheduled_at: scheduledISO,
+        });
+      } catch {
+        // API unavailable - optimistic update already applied
+      }
     } else {
-      setPosts(prev => [postToSave, ...prev]);
-      setSelectedPostId(postToSave.id);
+      // Create via API
+      const tempId = "post-" + Date.now();
+      const newPost: SocialPost = {
+        id: tempId,
+        title: formTitle,
+        content: formContent,
+        platforms: formPlatforms,
+        status: "draft",
+        scheduledAt: scheduledISO,
+        attachments: formAttachments,
+        tags: formTags,
+        comments: [],
+        logs: [
+          {
+            id: "log-" + Date.now(),
+            user: { name: actingUser.name, role: actingUser.role },
+            action: "Created new draft",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+      setPosts((prev) => [newPost, ...prev]);
+      setSelectedPostId(tempId);
+      try {
+        const { post: created } = await apiCreatePost(currentWorkspace, {
+          title: formTitle,
+          content: formContent,
+          platforms: formPlatforms,
+          status: "draft",
+          scheduled_at: scheduledISO,
+          attachments: formAttachments,
+        });
+        if (created) {
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === tempId
+                ? {
+                    ...p,
+                    id: created.id,
+                    logs: [
+                      {
+                        id: "log-" + Date.now(),
+                        user: { name: actingUser.name, role: actingUser.role },
+                        action: "Created new draft",
+                        timestamp: new Date().toISOString(),
+                      },
+                    ],
+                  }
+                : p
+            )
+          );
+          setSelectedPostId(created.id);
+        }
+      } catch {
+        // API unavailable - localStorage data is already set
+      }
     }
 
     setIsModalOpen(false);
@@ -349,16 +462,21 @@ export default function App() {
     setFormTags(prev => prev.filter(tag => tag !== t));
   };
 
-  // Delete post completely
-  const handleDeletePost = (id: string) => {
+  // Delete post completely - tries API first
+  const handleDeletePost = async (id: string) => {
     if (confirm("Are you sure you want to delete this planned post candidate?")) {
-      setPosts(prev => prev.filter(p => p.id !== id));
-      setSelectedPostIds(prev => prev.filter(selectedId => selectedId !== id));
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      setSelectedPostIds((prev) => prev.filter((selectedId) => selectedId !== id));
+      try {
+        await apiDeletePost(id);
+      } catch {
+        // API unavailable - already removed from local state
+      }
     }
   };
 
   // --- Bulk Actions Operations ---
-  const handleMassApprove = () => {
+  const handleMassApprove = async () => {
     if (selectedPostIds.length === 0) return;
     setPosts(prev => prev.map(p => {
       if (selectedPostIds.includes(p.id)) {
@@ -378,19 +496,26 @@ export default function App() {
       }
       return p;
     }));
+    // Fire API calls in background
+    for (const id of selectedPostIds) {
+      try { await apiUpdatePostStatus(id, "approved"); } catch {}
+    }
     setSelectedPostIds([]);
     alert("Selected campaign drafts have been approved successfully!");
   };
 
-  const handleBatchDelete = () => {
+  const handleBatchDelete = async () => {
     if (selectedPostIds.length === 0) return;
     if (confirm(`Are you sure you want to batch delete these ${selectedPostIds.length} campaigns?`)) {
       setPosts(prev => prev.filter(p => !selectedPostIds.includes(p.id)));
+      for (const id of selectedPostIds) {
+        try { await apiDeletePost(id); } catch {}
+      }
       setSelectedPostIds([]);
     }
   };
 
-  const handleBulkReschedule = (targetDateStr: string) => {
+  const handleBulkReschedule = async (targetDateStr: string) => {
     if (!targetDateStr) return;
     const targetDate = new Date(targetDateStr);
     setPosts(prev => prev.map(p => {
@@ -411,6 +536,9 @@ export default function App() {
       }
       return p;
     }));
+    for (const id of selectedPostIds) {
+      try { await apiUpdatePost(id, { scheduled_at: targetDate.toISOString() }); } catch {}
+    }
     setSelectedPostIds([]);
     alert("Selected campaigns have been rescheduled successfully!");
   };
@@ -556,6 +684,21 @@ export default function App() {
         return p;
       }));
 
+      // Persist AI comment to API
+      try {
+        await apiAddComment(selectedPost.id, {
+          text: data.comment || "Looks acceptable.",
+          is_ai: true,
+          persona,
+          author_name: selectedPersonaInfo.name,
+          author_role: selectedPersonaInfo.role,
+          author_avatar_url: selectedPersonaInfo.avatar,
+          suggestions: data.suggestions,
+        });
+      } catch {
+        // API unavailable - already in local state
+      }
+
     } catch (e: any) {
       console.error(e);
       alert("AI Reviewer failed to generate response: " + e.message);
@@ -564,8 +707,8 @@ export default function App() {
     }
   };
 
-  // Add general text comment from currently logged-in actor
-  const handleAddComment = (e: React.FormEvent) => {
+  // Add general text comment from currently logged-in actor - tries API first
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim() || !selectedPost) return;
 
@@ -603,10 +746,18 @@ export default function App() {
     }));
 
     setCommentText("");
+
+    try {
+      await apiAddComment(selectedPost.id, {
+        text: commentText,
+      });
+    } catch {
+      // API unavailable - optimistic update already applied
+    }
   };
 
-  // Planable status/approval pipelines
-  const handleUpdateStatus = (status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published') => {
+  // Planable status/approval pipelines - tries API first
+  const handleUpdateStatus = async (status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published') => {
     if (!selectedPost) return;
     
     const updatedLogs = [
@@ -621,22 +772,23 @@ export default function App() {
 
     setPosts(prev => prev.map(p => {
       if (p.id === selectedPost.id) {
-        return {
-          ...p,
-          status,
-          logs: updatedLogs
-        };
+        return { ...p, status, logs: updatedLogs };
       }
       return p;
     }));
+
+    try {
+      await apiUpdatePostStatus(selectedPost.id, status);
+    } catch {
+      // API unavailable - optimistic update already applied
+    }
   };
 
-  // Re-schedule day helper via calendar interaction
-  const handleReschedule = (postId: string, dateStr: string) => {
+  // Re-schedule day helper via calendar interaction - tries API first
+  const handleReschedule = async (postId: string, dateStr: string) => {
     const postToChg = posts.find(p => p.id === postId);
     if (!postToChg) return;
 
-    // Preserve the original hours/minutes
     const originalDate = new Date(postToChg.scheduledAt);
     const newTargetDate = new Date(dateStr);
     newTargetDate.setHours(originalDate.getHours());
@@ -654,14 +806,16 @@ export default function App() {
 
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
-        return {
-          ...p,
-          scheduledAt: newTargetDate.toISOString(),
-          logs: updatedLogs
-        };
+        return { ...p, scheduledAt: newTargetDate.toISOString(), logs: updatedLogs };
       }
       return p;
     }));
+
+    try {
+      await apiUpdatePost(postId, { scheduled_at: newTargetDate.toISOString() });
+    } catch {
+      // API unavailable - optimistic update already applied
+    }
   };
 
   // Helper renderer to represent active platforms on cards
