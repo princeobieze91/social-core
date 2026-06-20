@@ -655,6 +655,20 @@ Please respond in JSON format with the following keys:
   }
 });
 
+// ─── Legal Pages (served before Vite/static catch-all) ────────
+
+app.get("/privacy", (req: express.Request, res: express.Response) => {
+  res.sendFile(path.join(process.cwd(), "public", "privacy.html"));
+});
+
+app.get("/terms", (req: express.Request, res: express.Response) => {
+  res.sendFile(path.join(process.cwd(), "public", "terms.html"));
+});
+
+app.get("/data-deletion", (req: express.Request, res: express.Response) => {
+  res.sendFile(path.join(process.cwd(), "public", "data-deletion.html"));
+});
+
 // ─── Vite Dev Server / Static Build ───────────────────────────
 
 async function startServer() {
