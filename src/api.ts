@@ -163,3 +163,18 @@ export async function apiUpdatePostStatus(postId: string, status: string) {
 export async function apiGetPostLogs(postId: string) {
   return apiRequest<{ logs: any[] }>(`/api/posts/${postId}/logs`);
 }
+
+// ─── Publishing ───────────────────────────────────────────────
+
+export async function apiPublishPost(postId: string) {
+  return apiRequest<{ success: boolean; results: any[] }>(`/api/posts/${postId}/publish`, {
+    method: "POST",
+  });
+}
+
+export async function apiScheduleAndQueue(postId: string, scheduled_at: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/api/posts/${postId}/schedule-and-queue`, {
+    method: "POST",
+    body: JSON.stringify({ scheduled_at }),
+  });
+}

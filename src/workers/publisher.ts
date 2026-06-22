@@ -50,7 +50,7 @@ export async function publishToInstagram(channelId: string, text: string, mediaU
   try {
     // Step 1: Create media container
     const containerRes = await fetch(
-      `${FB_BASE}/me/media`,
+      `${FB_BASE}/${channel.page_id || 'me'}/media`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,7 +68,7 @@ export async function publishToInstagram(channelId: string, text: string, mediaU
 
     // Step 2: Publish the container
     const publishRes = await fetch(
-      `${FB_BASE}/me/media_publish`,
+      `${FB_BASE}/${channel.page_id || 'me'}/media_publish`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

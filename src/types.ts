@@ -3,7 +3,7 @@ export interface SocialPost {
   title: string;
   content: string;
   platforms: string[]; // ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok']
-  status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published';
+  status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published' | 'publishing' | 'failed';
   scheduledAt: string; // ISO date-time string
   attachments: PostAttachment[];
   comments: PostComment[];

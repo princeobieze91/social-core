@@ -49,6 +49,8 @@ import {
   apiUpdatePostStatus,
   apiAddComment,
   apiGetWorkspaces,
+  apiPublishPost,
+  apiScheduleAndQueue,
 } from "./api";
 
 export default function App() {
@@ -781,6 +783,94 @@ export default function App() {
       await apiUpdatePostStatus(selectedPost.id, status);
     } catch {
       // API unavailable - optimistic update already applied
+    }
+  };
+
+  // ─── Publish Now (direct HTTP publish, no Redis needed) ─────
+
+  const handlePublishNow = async (postId: string) => {
+    if (!confirm("Publish this post to its connected social channels now?")) return;
+    
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    // Optimistic UI: show publishing state
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return { ...p, status: "publishing" as const };
+      }
+      return p;
+    }));
+
+    try {
+      const result = await apiPublishPost(postId);
+      
+      if (result.success) {
+        const successPlatforms = result.results.filter((r: any) => r.success).map((r: any) => r.platform);
+        const failPlatforms = result.results.filter((r: any) => !r.success);
+        
+        setPosts(prev => prev.map(p => {
+          if (p.id === postId) {
+            return {
+              ...p,
+              status: "published" as const,
+              logs: [
+                ...p.logs,
+                {
+                  id: "log-" + Date.now(),
+                  user: { name: actingUser.name, role: actingUser.role },
+                  action: `Published to: ${successPlatforms.join(', ')}`,
+                  timestamp: new Date().toISOString()
+                },
+                ...(failPlatforms.length > 0 ? [{
+                  id: "log-" + Date.now() + "-fail",
+                  user: { name: "System", role: "system" },
+                  action: `Failed on: ${failPlatforms.map((r: any) => `${r.platform}: ${r.error}`).join('; ')}`,
+                  timestamp: new Date().toISOString()
+                }] : [])
+              ]
+            };
+          }
+          return p;
+        }));
+
+        if (failPlatforms.length > 0) {
+          alert(`Published to ${successPlatforms.join(', ')}.\n\nIssues on: ${failPlatforms.map((r: any) => `${r.platform}: ${r.error}`).join('\n')}`);
+        } else {
+          alert(`✅ Successfully published to ${successPlatforms.join(', ')}!`);
+        }
+      } else {
+        // All failed
+        const errorMsg = result.results.map((r: any) => `${r.platform}: ${r.error}`).join('; ');
+        setPosts(prev => prev.map(p => {
+          if (p.id === postId) {
+            return {
+              ...p,
+              status: "failed" as const,
+              logs: [
+                ...p.logs,
+                {
+                  id: "log-" + Date.now(),
+                  user: { name: actingUser.name, role: actingUser.role },
+                  action: `Publish failed: ${errorMsg}`,
+                  timestamp: new Date().toISOString()
+                }
+              ]
+            };
+          }
+          return p;
+        }));
+        alert(`❌ Publish failed:\n${errorMsg}`);
+      }
+    } catch (err: any) {
+      // API unavailable - revert to previous status
+      setPosts(prev => prev.map(p => {
+        if (p.id === postId) {
+          return { ...p, status: post.status };
+        }
+        return p;
+      }));
+      alert("Publish failed: " + (err.message || "API unavailable"));
     }
   };
 
@@ -1660,11 +1750,42 @@ export default function App() {
                 </button>
               </div>
 
+                {/* ─── Publish Now button (direct HTTP publish) ─── */}
+              <button
+                id="btn-publish-now"
+                onClick={() => handlePublishNow(selectedPost.id)}
+                disabled={selectedPost.status === "published" || selectedPost.status === "publishing"}
+                className={`w-full mt-2.5 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
+                  selectedPost.status === "published"
+                    ? "bg-blue-50 border-blue-200 text-blue-400 cursor-not-allowed"
+                    : selectedPost.status === "publishing"
+                    ? "bg-amber-50 border-amber-200 text-amber-600 cursor-wait"
+                    : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                }`}
+              >
+                {selectedPost.status === "publishing" ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Publishing...</span>
+                  </>
+                ) : selectedPost.status === "published" ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Published</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Publish Now</span>
+                  </>
+                )}
+              </button>
+
               {/* Reset to draft option */}
-              {selectedPost.status !== "draft" && (
+              {selectedPost.status !== "draft" && selectedPost.status !== "published" && (
                 <button
                   onClick={() => handleUpdateStatus("draft")}
-                  className="w-full text-center mt-2 text-[10px] text-slate-500 hover:text-indigo-600 font-medium underline"
+                  className="w-full text-center mt-1.5 text-[10px] text-slate-500 hover:text-indigo-600 font-medium underline"
                 >
                   Revert status to Draft Planning
                 </button>

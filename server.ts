@@ -36,8 +36,9 @@ import {
   markPostPublished,
   markPostFailed,
 } from "./src/db";
-import { getFacebookAuthUrl, handleFacebookCallback } from "./src/oauth/facebook";
+import { getFacebookAuthUrl, handleFacebookCallback, refreshFacebookToken } from "./src/oauth/facebook";
 import { getLinkedInAuthUrl, handleLinkedInCallback } from "./src/oauth/linkedin";
+import { publishPost } from "./src/workers/publisher";
 
 const JWT_SECRET = process.env.JWT_SECRET || "socialcore-jwt-secret-dev-only";
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN || "";
@@ -363,6 +364,106 @@ app.get("/api/oauth/linkedin/callback", async (req: express.Request, res: expres
   } catch (error: any) {
     console.error("LinkedIn OAuth callback error:", error);
     res.redirect(`${APP_URL}?oauth_error=${encodeURIComponent(error.message)}`);
+  }
+});
+
+// ─── DIRECT PUBLISH ROUTES (no Redis/BullMQ needed) ──────────
+
+app.post("/api/posts/:postId/publish", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const post = await getPostById(req.params.postId);
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    const channels = await getWorkspaceChannels(post.workspace_id);
+    const mediaUrls = (post.attachments || []).map((a: any) => a.url);
+    const results: any[] = [];
+
+    for (const platform of post.platforms) {
+      const channel = channels.find((c: any) => c.platform === platform);
+      if (!channel) {
+        results.push({ platform, success: false, error: `No connected channel for ${platform}. Connect one in Settings.` });
+        continue;
+      }
+
+      let result = await publishPost(channel.id, platform, post.content, mediaUrls);
+
+      // If token expired, try refresh and retry once
+      if (!result.success && result.error?.includes('expired')) {
+        console.log(`[Publish] Token expired for ${platform} channel ${channel.id}, attempting refresh...`);
+        const newToken = await refreshFacebookToken(channel.id);
+        if (newToken) {
+          result = await publishPost(channel.id, platform, post.content, mediaUrls);
+        }
+      }
+
+      results.push({ platform, channel_name: channel.profile_name, ...result });
+    }
+
+    const allFailed = results.every(r => !r.success);
+    const anySuccess = results.some(r => r.success);
+
+    if (allFailed) {
+      const errorMsg = results.map(r => `${r.platform}: ${r.error}`).join('; ');
+      await markPostFailed(req.params.postId, errorMsg, (post.retry_count || 0) + 1);
+      await addPostLog(req.params.postId, 'System', 'system', `Direct publish failed: ${errorMsg}`);
+      res.status(500).json({ success: false, error: errorMsg, results });
+      return;
+    }
+
+    if (anySuccess) {
+      await markPostPublished(req.params.postId);
+      await addPostLog(req.params.postId, 'System', 'system',
+        `Published to: ${results.filter(r => r.success).map(r => r.platform).join(', ')}`
+      );
+    }
+
+    const failedPlatforms = results.filter(r => !r.success);
+    if (failedPlatforms.length > 0) {
+      await addPostLog(req.params.postId, 'System', 'system',
+        `Failed on: ${failedPlatforms.map(r => `${r.platform}: ${r.error}`).join('; ')}`
+      );
+    }
+
+    res.json({ success: anySuccess, results });
+  } catch (error: any) {
+    console.error("Publish error:", error);
+    res.status(500).json({ error: error.message || "Failed to publish post" });
+  }
+});
+
+app.post("/api/posts/:postId/schedule-and-queue", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { scheduled_at } = req.body;
+    const post = await getPostById(req.params.postId);
+    if (!post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    await updatePost(req.params.postId, {
+      status: 'scheduled',
+      scheduled_at: scheduled_at || post.scheduled_at
+    });
+
+    await addPostLog(req.params.postId, 'System', 'system', 'Scheduled for auto-publishing');
+
+    // Try to enqueue via BullMQ if Redis is available
+    try {
+      const { enqueuePost } = await import("./src/workers/queue");
+      await enqueuePost(req.params.postId);
+      console.log(`[Schedule] Enqueued post ${req.params.postId} via BullMQ`);
+    } catch {
+      // BullMQ not available - will be picked up by scheduler on next scan
+      console.log(`[Schedule] Post ${req.params.postId} scheduled (no Redis). Scheduler will pick it up.`);
+    }
+
+    res.json({ success: true, message: "Post scheduled for publishing" });
+  } catch (error: any) {
+    console.error("Schedule error:", error);
+    res.status(500).json({ error: error.message || "Failed to schedule post" });
   }
 });
 
