@@ -20,7 +20,7 @@ interface LoginRegisterProps {
 
 const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
 const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
-const REDIRECT_URI = window.location.origin;
+const REDIRECT_URI = "https://social-core.onrender.com";
 
 function redirectToAuth0(connection: string) {
   const state = Math.random().toString(36).substring(2);
@@ -165,9 +165,9 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
                 <strong>Certified Security:</strong> Direct API integrations with SQLite-powered user management and JWT-secured sessions.
               </span>
             </div>
-            <p className="text-[10px] text-indigo-300 font-mono">
-              PRODUCTION BUILD SUITE • VERSION 3.2.2026
-            </p>
+                <p className="text-[10px] text-indigo-300 font-mono">
+                  PRODUCTION BUILD • VERSION 3.2.2026 • social-core.onrender.com
+                </p>
           </div>
         </div>
 

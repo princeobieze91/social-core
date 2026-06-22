@@ -3,7 +3,7 @@ import { Shield, CheckCircle, ArrowRight, Lock } from "lucide-react";
 
 const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
 const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
-const REDIRECT_URI = window.location.origin;
+const REDIRECT_URI = "https://social-core.onrender.com";
 
 const PROVIDER_CONFIG: Record<string, {
   name: string;
@@ -77,6 +77,7 @@ export default function OAuthConsent({ provider, onBack }: OAuthConsentProps) {
             <div>
               <p className="text-sm font-bold text-slate-800">SocialCore Hub</p>
               <p className="text-[11px] text-slate-500">social-core.onrender.com</p>
+              <p className="text-[9px] text-slate-400 mt-0.5 font-mono">App ID: 2042167676670243</p>
             </div>
           </div>
 
