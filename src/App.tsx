@@ -40,7 +40,7 @@ import Sidebar from "./components/Sidebar";
 import LoginRegister from "./components/LoginRegister";
 import OAuthConsent from "./components/OAuthConsent";
 import { SocialPost, TeamMember, PostComment, ActiveView, PostAttachment } from "./types";
-import { INITIAL_POSTS, INITIAL_TEAM_MEMBERS, PLATFORMS_CONFIG, WORKSPACES } from "./mockData";
+import { PLATFORMS_CONFIG } from "./platforms";
 import {
   apiGetPosts,
   apiCreatePost,
@@ -49,6 +49,7 @@ import {
   apiUpdatePostStatus,
   apiAddComment,
   apiGetWorkspaces,
+  apiGetWorkspaceMembers,
   apiPublishPost,
   apiScheduleAndQueue,
 } from "./api";
@@ -63,22 +64,12 @@ export default function App() {
     return null;
   });
 
-  const [posts, setPosts] = useState<SocialPost[]>(() => {
-    const saved = localStorage.getItem("socialcore_posts");
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_POSTS;
-  });
+  const [posts, setPosts] = useState<SocialPost[]>([]);
 
-  const [currentWorkspace, setCurrentWorkspace] = useState("ws-acme");
-  const [actingUser, setActingUser] = useState<TeamMember>(() => {
-    const saved = localStorage.getItem("socialcore_user_session");
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_TEAM_MEMBERS[0];
-  });
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; logo: string; description?: string }>>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<TeamMember[]>([]);
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>("");
+  const [actingUser, setActingUser] = useState<TeamMember | null>(null);
 
   const [authToken, setAuthToken] = useState<string | null>(() => {
     return localStorage.getItem("socialcore_auth_token");
@@ -95,7 +86,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   
   // Selection state for detail/collaboration sidebar
-  const [selectedPostId, setSelectedPostId] = useState<string>(INITIAL_POSTS[0]?.id || "");
+  const [selectedPostId, setSelectedPostId] = useState<string>("");
   const selectedPost = posts.find(p => p.id === selectedPostId) || posts[0] || null;
 
   // Form state for Create/Edit Modal
@@ -172,9 +163,41 @@ export default function App() {
     }
   }, []);
 
-  // Load posts from API when user is authenticated, fallback to localStorage
+  // Load workspaces and posts from API when user is authenticated
   useEffect(() => {
     if (!currentUser || !authToken) return;
+
+    apiGetWorkspaces()
+      .then(({ workspaces: apiWorkspaces }) => {
+        setWorkspaces(apiWorkspaces);
+        if (apiWorkspaces.length > 0 && !currentWorkspace) {
+          setCurrentWorkspace(apiWorkspaces[0].id);
+        }
+      })
+      .catch(() => {
+        // API unavailable - continue with empty state
+      });
+  }, [currentUser, authToken]);
+
+  // Load workspace members when workspace changes
+  useEffect(() => {
+    if (!currentWorkspace || !authToken) return;
+
+    apiGetWorkspaceMembers(currentWorkspace)
+      .then(({ members: apiMembers }) => {
+        setWorkspaceMembers(apiMembers);
+        if (apiMembers.length > 0 && !actingUser) {
+          setActingUser(apiMembers[0]);
+        }
+      })
+      .catch(() => {
+        // API unavailable - continue with empty state
+      });
+  }, [currentWorkspace, authToken]);
+
+  // Load posts from API when workspace changes
+  useEffect(() => {
+    if (!currentUser || !authToken || !currentWorkspace) return;
     apiGetPosts(currentWorkspace)
       .then(({ posts: apiPosts }) => {
         if (apiPosts && apiPosts.length > 0) {
@@ -218,7 +241,7 @@ export default function App() {
         }
       })
       .catch(() => {
-        // API unavailable - continue with localStorage data
+        // API unavailable - continue with empty state
       });
   }, [currentUser, authToken, currentWorkspace]);
 
@@ -335,7 +358,7 @@ export default function App() {
   // Submit Post Form (Create or Write-back) - tries API first, falls back to localStorage
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle || !formContent) return;
+    if (!formTitle || !formContent || !actingUser) return;
 
     const scheduledISO = new Date(formScheduledAt).toISOString();
 
@@ -479,7 +502,7 @@ export default function App() {
 
   // --- Bulk Actions Operations ---
   const handleMassApprove = async () => {
-    if (selectedPostIds.length === 0) return;
+    if (selectedPostIds.length === 0 || !actingUser) return;
     setPosts(prev => prev.map(p => {
       if (selectedPostIds.includes(p.id)) {
         return {
@@ -518,7 +541,7 @@ export default function App() {
   };
 
   const handleBulkReschedule = async (targetDateStr: string) => {
-    if (!targetDateStr) return;
+    if (!targetDateStr || !actingUser) return;
     const targetDate = new Date(targetDateStr);
     setPosts(prev => prev.map(p => {
       if (selectedPostIds.includes(p.id)) {
@@ -712,7 +735,7 @@ export default function App() {
   // Add general text comment from currently logged-in actor - tries API first
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim() || !selectedPost) return;
+    if (!commentText.trim() || !selectedPost || !actingUser) return;
 
     const newComment: PostComment = {
       id: "user-comm-" + Date.now(),
@@ -760,7 +783,7 @@ export default function App() {
 
   // Planable status/approval pipelines - tries API first
   const handleUpdateStatus = async (status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published') => {
-    if (!selectedPost) return;
+    if (!selectedPost || !actingUser) return;
     
     const updatedLogs = [
       ...selectedPost.logs,
@@ -790,6 +813,7 @@ export default function App() {
 
   const handlePublishNow = async (postId: string) => {
     if (!confirm("Publish this post to its connected social channels now?")) return;
+    if (!actingUser) return;
     
     const post = posts.find(p => p.id === postId);
     if (!post) return;
@@ -877,7 +901,7 @@ export default function App() {
   // Re-schedule day helper via calendar interaction - tries API first
   const handleReschedule = async (postId: string, dateStr: string) => {
     const postToChg = posts.find(p => p.id === postId);
-    if (!postToChg) return;
+    if (!postToChg || !actingUser) return;
 
     const originalDate = new Date(postToChg.scheduledAt);
     const newTargetDate = new Date(dateStr);
@@ -960,6 +984,10 @@ export default function App() {
     return <LoginRegister onLoginSuccess={(u, t) => { setCurrentUser(u); setAuthToken(t || null); }} />;
   }
 
+  if (!actingUser) {
+    return <div className="flex items-center justify-center h-screen">Loading workspace...</div>;
+  }
+
   return (
     <div className="flex h-screen bg-[#f1f5f9] select-none overflow-hidden font-sans text-slate-900">
       
@@ -974,6 +1002,8 @@ export default function App() {
         selectedPlatformFilter={selectedPlatformFilter}
         setSelectedPlatformFilter={setSelectedPlatformFilter}
         postsCount={postCountsObj}
+        workspaces={workspaces}
+        teamMembers={workspaceMembers}
         onSignOut={() => { setCurrentUser(null); setAuthToken(null); }}
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
@@ -1024,13 +1054,13 @@ export default function App() {
               )}
             </div>
 
-            {/* Simulated Live Workspace members status indicator row */}
+            {/* Live Workspace members status indicator row */}
             <div className="flex -space-x-2 mr-2">
-              {INITIAL_TEAM_MEMBERS.map(member => (
+              {workspaceMembers.map(member => (
                 <img 
                   key={member.id}
                   src={member.avatarUrl} 
-                  title={`${member.name} (${member.role}) ${member.status === 'active' ? '● Online' : ''}`}
+                  title={`${member.name} (${member.role})`}
                   className="w-7 h-7 rounded-full border-2 border-white object-cover"
                   alt={member.name}
                 />
@@ -1056,14 +1086,14 @@ export default function App() {
           <div className="mb-5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-3xl p-1 bg-indigo-50 rounded-lg">
-                {WORKSPACES.find(w => w.id === currentWorkspace)?.logo || "🚀"}
+                {workspaces.find(w => w.id === currentWorkspace)?.logo || "🚀"}
               </span>
               <div>
                 <h2 className="text-sm font-bold text-slate-800">
-                  {WORKSPACES.find(w => w.id === currentWorkspace)?.name}
+                  {workspaces.find(w => w.id === currentWorkspace)?.name || "No Workspace"}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  {WORKSPACES.find(w => w.id === currentWorkspace)?.description}
+                  {workspaces.find(w => w.id === currentWorkspace)?.description || ""}
                 </p>
               </div>
             </div>

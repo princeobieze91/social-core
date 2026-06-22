@@ -63,6 +63,10 @@ export async function apiGetWorkspaces() {
   return apiRequest<{ workspaces: any[] }>("/api/workspaces");
 }
 
+export async function apiGetWorkspaceMembers(workspaceId: string) {
+  return apiRequest<{ members: any[] }>(`/api/workspaces/${workspaceId}/members`);
+}
+
 export async function apiCreateWorkspace(name: string, logo?: string, description?: string) {
   return apiRequest<{ workspace: any }>("/api/workspaces", {
     method: "POST",

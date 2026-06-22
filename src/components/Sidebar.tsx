@@ -8,14 +8,14 @@ import {
   Sparkles, 
   X
 } from "lucide-react";
-import { WORKSPACES, INITIAL_TEAM_MEMBERS, PLATFORMS_CONFIG } from "../mockData";
+import { PLATFORMS_CONFIG } from "../platforms";
 import { TeamMember, ActiveView } from "../types";
 
 interface SidebarProps {
   currentWorkspace: string;
   setCurrentWorkspace: (id: string) => void;
-  actingUser: TeamMember;
-  setActingUser: (user: TeamMember) => void;
+  actingUser: TeamMember | null;
+  setActingUser: (user: TeamMember | null) => void;
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
   selectedPlatformFilter: string | null;
@@ -27,6 +27,8 @@ interface SidebarProps {
     scheduled: number;
     published: number;
   };
+  workspaces: Array<{ id: string; name: string; logo: string; description?: string }>;
+  teamMembers: TeamMember[];
   onSignOut?: () => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -42,11 +44,17 @@ export default function Sidebar({
   selectedPlatformFilter,
   setSelectedPlatformFilter,
   postsCount,
+  workspaces,
+  teamMembers,
   onSignOut,
   isMobileOpen,
   onMobileClose
 }: SidebarProps) {
-  const activeWorkspaceObj = WORKSPACES.find(w => w.id === currentWorkspace) || WORKSPACES[0];
+  if (!actingUser) {
+    return null;
+  }
+
+  const activeWorkspaceObj = workspaces.find(w => w.id === currentWorkspace) || workspaces[0] || { id: "", name: "No Workspace", logo: "📋", description: "" };
 
   const sidebarContent = (
     <>
@@ -71,7 +79,7 @@ export default function Sidebar({
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-1 bg-slate-50 p-1 rounded-lg">
-          {WORKSPACES.map(ws => (
+          {workspaces.map(ws => (
             <button
               key={ws.id}
               onClick={() => { setCurrentWorkspace(ws.id); onMobileClose?.(); }}
@@ -82,7 +90,7 @@ export default function Sidebar({
               }`}
               title={ws.name}
             >
-              {ws.logo} {ws.id.split("-")[1].toUpperCase()}
+              {ws.logo} {ws.id.split("-")[1]?.toUpperCase() || ws.name.substring(0, 3).toUpperCase()}
             </button>
           ))}
         </div>
@@ -90,7 +98,7 @@ export default function Sidebar({
 
       <div className="p-4 border-b border-slate-100 bg-slate-50/50">
         <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 block">
-          Acting Team Role
+          Logged In As
         </label>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 bg-white px-2.5 py-2 border border-slate-200 rounded-lg shadow-xs">
@@ -111,21 +119,6 @@ export default function Sidebar({
               </span>
             </div>
           </div>
-
-          <select
-            value={actingUser.id}
-            onChange={(e) => {
-              const selected = INITIAL_TEAM_MEMBERS.find(t => t.id === e.target.value);
-              if (selected) setActingUser(selected);
-            }}
-            className="text-xs cursor-pointer border border-slate-200 rounded-md p-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
-          >
-            {INITIAL_TEAM_MEMBERS.map(t => (
-              <option key={t.id} value={t.id}>
-                Simulate as: {t.name} ({t.role})
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
