@@ -77,6 +77,7 @@ export default function App() {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMobileCollabOpen, setIsMobileCollabOpen] = useState(false);
+  const [isCollabPanelOpen, setIsCollabPanelOpen] = useState(true);
   const [consentProvider, setConsentProvider] = useState<string | null>(null);
   
   // Bulk selection list check state
@@ -254,6 +255,11 @@ export default function App() {
   useEffect(() => {
     if (posts.length > 0 && !posts.some(p => p.id === selectedPostId)) {
       setSelectedPostId(posts[0].id);
+    }
+    // Auto-open collab panel when a post is selected
+    if (selectedPostId && posts.some(p => p.id === selectedPostId)) {
+      setIsCollabPanelOpen(true);
+      setIsMobileCollabOpen(true);
     }
   }, [posts, selectedPostId]);
 
@@ -1737,19 +1743,29 @@ export default function App() {
       </div>
 
       {/* 3. Team Collaboration, approvals & AI reviewer Sidebar Panel */}
-      <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 font-sans shadow-sm" id="collab-panel">
-        
-        {/* Detail Panel Header */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Active Campaign Block</span>
-            <span className="font-display font-semibold text-xs text-slate-800 line-clamp-1">
-              {selectedPost ? selectedPost.title : "No post selected"}
-            </span>
-          </div>
+      {isCollabPanelOpen && (
+        <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 font-sans shadow-sm" id="collab-panel">
+          
+          {/* Detail Panel Header */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Active Campaign Block</span>
+              <span className="font-display font-semibold text-xs text-slate-800 line-clamp-1">
+                {selectedPost ? selectedPost.title : "No post selected"}
+              </span>
+            </div>
 
-          <span className="text-[11px] font-semibold text-slate-500 font-mono">Feedback Stream</span>
-        </div>
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-[11px] font-semibold text-slate-500 font-mono hidden sm:inline">Feedback Stream</span>
+              <button
+                onClick={() => setIsCollabPanelOpen(false)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                title="Close panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
         {/* Selected Post Overview */}
         {selectedPost ? (
@@ -2016,10 +2032,19 @@ export default function App() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400 text-center text-xs">
-            No planned posts are established. Composed drafts will display review boards here.
+            <Info className="w-8 h-8 mb-2 text-slate-300" />
+            <p className="font-semibold text-sm text-slate-600 mb-1">No post selected</p>
+            <p>Select a post from the feed or calendar to view collaboration details.</p>
+            <button
+              onClick={() => setIsCollabPanelOpen(false)}
+              className="mt-4 px-3 py-1.5 text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Close Panel
+            </button>
           </div>
         )}
       </aside>
+      )}
 
       {/* ============================================================== */}
       {/* CREATION & AI OPTIMIZER modal box (Rich Overlay Chassis) */}
