@@ -118,10 +118,6 @@ export default function App() {
   const [formTagInput, setFormTagInput] = useState("");
   const [formAttachments, setFormAttachments] = useState<PostAttachment[]>([]);
   
-  // Drag and drop / file simulated link state
-  const [simulatedMediaUrl, setSimulatedMediaUrl] = useState("");
-  const [simulatedMediaName, setSimulatedMediaName] = useState("");
-
   // Gemini AI assistant states
   const [aiAssistantLoading, setAiAssistantLoading] = useState(false);
   const [aiAssistantJustification, setAiAssistantJustification] = useState("");
@@ -371,8 +367,6 @@ export default function App() {
       }
     ]);
     setFormTagInput("");
-    setSimulatedMediaUrl("");
-    setSimulatedMediaName("");
     setAiAssistantJustification("");
     setAiAssistantHashtags([]);
     setIsModalOpen(true);
@@ -390,8 +384,6 @@ export default function App() {
     setFormTags(post.tags);
     setFormAttachments([...post.attachments]);
     setFormTagInput("");
-    setSimulatedMediaUrl("");
-    setSimulatedMediaName("");
     setAiAssistantJustification("");
     setAiAssistantHashtags([]);
     setIsModalOpen(true);
@@ -495,22 +487,6 @@ export default function App() {
     }
 
     setIsModalOpen(false);
-  };
-
-  // Add customized attachment link inside form
-  const handleAddSimulatedAttachment = () => {
-    if (!simulatedMediaUrl) return;
-    const name = simulatedMediaName || "interactive_media_reference.jpg";
-    const newAttach: PostAttachment = {
-      id: "att-" + Date.now(),
-      name: name,
-      type: name.endsWith(".mp4") ? "video/mp4" : "image/jpeg",
-      url: simulatedMediaUrl,
-      size: "2.4 MB"
-    };
-    setFormAttachments(prev => [...prev, newAttach]);
-    setSimulatedMediaUrl("");
-    setSimulatedMediaName("");
   };
 
   const handleRemoveAttachment = (id: string) => {
@@ -1234,14 +1210,14 @@ export default function App() {
       
       {/* 1. Navigation Sidebar (Left Panel) - 240px fixed width */}
       <aside className="w-60 bg-slate-900 text-white flex flex-col h-screen shrink-0 shadow-xl">
-        {/* Planables Logo - Top */}
+        {/* SocialCore Logo - Top */}
         <div className="p-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-xl font-bold">P</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold">Planables</h1>
+              <h1 className="text-lg font-bold">SocialCore</h1>
               <p className="text-[10px] text-slate-400">Social Media Platform</p>
             </div>
           </div>
@@ -1301,23 +1277,32 @@ export default function App() {
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Management</p>
           </div>
 
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => window.location.href = "/team"}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+          >
             <Users className="w-5 h-5" />
             Team
           </button>
 
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => window.location.href = "/reports"}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+          >
             <BarChart3 className="w-5 h-5" />
             Reports
           </button>
 
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => window.location.href = "/settings"}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+          >
             <Settings className="w-5 h-5" />
             Settings
           </button>
         </nav>
 
-        {/* Planables Logo - Bottom & User Profile */}
+        {/* SocialCore Logo - Bottom & User Profile */}
         <div className="p-4 border-t border-slate-700 space-y-3">
           {/* Workspace Selector */}
           <div className="relative">
@@ -1391,7 +1376,10 @@ export default function App() {
             </div>
 
             {/* Notifications */}
-            <button className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <button 
+              onClick={() => alert("Notifications: You have 3 pending approvals")}
+              className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+            >
               <Bell className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
@@ -1471,9 +1459,24 @@ export default function App() {
 
           {/* Tabs */}
           <div className="flex border-b border-slate-100 bg-slate-50/30">
-            <button className="flex-1 px-4 py-2 text-xs font-semibold text-indigo-600 border-b-2 border-indigo-600">Creative</button>
-            <button className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700">Collaboration</button>
-            <button className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700">Context</button>
+            <button 
+              onClick={() => alert("Creative tab: Write and preview your content")}
+              className="flex-1 px-4 py-2 text-xs font-semibold text-indigo-600 border-b-2 border-indigo-600"
+            >
+              Creative
+            </button>
+            <button 
+              onClick={() => alert("Collaboration tab: Review comments and approvals")}
+              className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Collaboration
+            </button>
+            <button 
+              onClick={() => alert("Context tab: Set targeting and campaign details")}
+              className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Context
+            </button>
           </div>
 
           {/* Panel Content */}
@@ -1497,9 +1500,34 @@ export default function App() {
                   className="w-full h-32 p-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 />
                 <div className="flex gap-2 mt-2">
-                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">😀 Emoji</button>
-                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600"># Hashtag</button>
-                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">@ Mention</button>
+                  <button 
+                    onClick={() => {
+                      const emojis = ['😀', '😂', '😍', '🎉', '✨', '🔥', '💯', '🚀'];
+                      const emoji = prompt("Choose emoji:\n" + emojis.join(" ")) || emojis[0];
+                      setEditorContent(prev => prev + " " + emoji);
+                    }}
+                    className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600"
+                  >
+                    😀 Emoji
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const hashtag = prompt("Enter hashtag:");
+                      if (hashtag) setEditorContent(prev => prev + " #" + hashtag.replace("#", ""));
+                    }}
+                    className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600"
+                  >
+                    # Hashtag
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const mention = prompt("Enter username to mention:");
+                      if (mention) setEditorContent(prev => prev + " @" + mention.replace("@", ""));
+                    }}
+                    className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600"
+                  >
+                    @ Mention
+                  </button>
                 </div>
               </div>
 
@@ -1526,7 +1554,23 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <button className="aspect-square border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
+                  <button 
+                    onClick={() => {
+                      const url = prompt("Enter media URL:");
+                      const name = prompt("Enter file name:");
+                      if (url && name) {
+                        const newAttach: PostAttachment = {
+                          id: "att-" + Date.now(),
+                          name: name,
+                          type: name.endsWith(".mp4") ? "video/mp4" : "image/jpeg",
+                          url: url,
+                          size: "2.4 MB"
+                        };
+                        setFormAttachments(prev => [...prev, newAttach]);
+                      }
+                    }}
+                    className="aspect-square border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+                  >
                     <Plus className="w-6 h-6 mb-1" />
                     <span className="text-[10px]">Add Media</span>
                   </button>
