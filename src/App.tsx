@@ -34,7 +34,17 @@ import {
   Video,
   Menu,
   PanelRightOpen,
-  PanelRightClose
+  PanelRightClose,
+  LayoutDashboard,
+  Users,
+  Settings,
+  LogOut,
+  Building2,
+  ChevronDown,
+  FolderOpen,
+  FileText,
+  TrendingUp,
+  BarChart3
 } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import LoginRegister from "./components/LoginRegister";
@@ -291,11 +301,10 @@ export default function App() {
 
   // Filter posts based on acting workspace guidelines and channel filters
   const filteredPostsByWorkspaceAndPlatform = posts.filter(post => {
-    // Simulated separation: We distribute posts with tags or name associations to simulate high fidelity workspace selection
     const matchesWorkspace = 
       currentWorkspace === "ws-tech" ? post.tags.includes("Thought Leadership") || post.platforms.includes("linkedin") || post.platforms.includes("twitter") :
       currentWorkspace === "ws-solis" ? post.platforms.includes("instagram") || post.platforms.includes("tiktok") :
-      true; // ws-acme sees all
+      true;
 
     const matchesPlatform = selectedPlatformFilter ? post.platforms.includes(selectedPlatformFilter) : true;
     
@@ -315,11 +324,9 @@ export default function App() {
     setFormContent("We are excited to share this incredible milestone with our global community! Stay tuned as we lift the curtains next Tuesday. ✨🌎\n\n#Milestone #TeamWork #Innovation");
     setFormPlatforms(["facebook", "instagram"]);
     
-    // Set scheduled time to tomorrow at 10 AM
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(10, 0, 0, 0);
-    // Format to local ISO-like correct format for input element
     const localISO = new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     setFormScheduledAt(localISO);
     
@@ -347,7 +354,6 @@ export default function App() {
     setFormTitle(post.title);
     setFormContent(post.content);
     setFormPlatforms(post.platforms);
-    // Format date string safely for local datetime input
     const d = new Date(post.scheduledAt);
     const localISO = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     setFormScheduledAt(localISO);
@@ -527,7 +533,6 @@ export default function App() {
       }
       return p;
     }));
-    // Fire API calls in background
     for (const id of selectedPostIds) {
       try { await apiUpdatePostStatus(id, "approved"); } catch {}
     }
@@ -642,7 +647,6 @@ export default function App() {
 
       const data = await response.json();
       
-      // Map beautiful avatars for review feedback representation
       const avatarsMap = {
         jane: {
           name: "Jane (Brand Stakeholder)",
@@ -683,7 +687,6 @@ export default function App() {
         suggestions: data.suggestions || []
       };
 
-      // Automatically change status based on reviewer feedback to simulate natural workflow
       let newStatus = selectedPost.status;
       if (data.decision === "approved") {
         newStatus = "approved";
@@ -715,7 +718,6 @@ export default function App() {
         return p;
       }));
 
-      // Persist AI comment to API
       try {
         await apiAddComment(selectedPost.id, {
           text: data.comment || "Looks acceptable.",
@@ -815,8 +817,6 @@ export default function App() {
     }
   };
 
-  // ─── Publish Now (direct HTTP publish, no Redis needed) ─────
-
   const handlePublishNow = async (postId: string) => {
     if (!confirm("Publish this post to its connected social channels now?")) return;
     if (!actingUser) return;
@@ -824,7 +824,6 @@ export default function App() {
     const post = posts.find(p => p.id === postId);
     if (!post) return;
 
-    // Optimistic UI: show publishing state
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         return { ...p, status: "publishing" as const };
@@ -870,7 +869,6 @@ export default function App() {
           alert(`✅ Successfully published to ${successPlatforms.join(', ')}!`);
         }
       } else {
-        // All failed
         const errorMsg = result.results.map((r: any) => `${r.platform}: ${r.error}`).join('; ');
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
@@ -893,7 +891,6 @@ export default function App() {
         alert(`❌ Publish failed:\n${errorMsg}`);
       }
     } catch (err: any) {
-      // API unavailable - revert to previous status
       setPosts(prev => prev.map(p => {
         if (p.id === postId) {
           return { ...p, status: post.status };
@@ -904,7 +901,6 @@ export default function App() {
     }
   };
 
-  // Re-schedule day helper via calendar interaction - tries API first
   const handleReschedule = async (postId: string, dateStr: string) => {
     const postToChg = posts.find(p => p.id === postId);
     if (!postToChg || !actingUser) return;
@@ -938,7 +934,6 @@ export default function App() {
     }
   };
 
-  // Helper renderer to represent active platforms on cards
   const renderPlatformBadgeIcon = (platformId: string) => {
     const platform = PLATFORMS_CONFIG.find(p => p.id === platformId) || PLATFORMS_CONFIG[0];
     const emojiMap = {
@@ -957,7 +952,6 @@ export default function App() {
     );
   };
 
-  // Helper status color indicator
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "approved":
@@ -994,1385 +988,413 @@ export default function App() {
     return <div className="flex items-center justify-center h-screen">Loading workspace...</div>;
   }
 
-  return (
-    <div className="flex h-screen bg-[#f1f5f9] select-none overflow-hidden font-sans text-slate-900">
-      
-      {/* 1. Bento Sidebar navigation component */}
-      <Sidebar 
-        currentWorkspace={currentWorkspace}
-        setCurrentWorkspace={setCurrentWorkspace}
-        actingUser={actingUser}
-        setActingUser={setActingUser}
-        activeView={activeView}
-        setActiveView={setActiveView}
-        selectedPlatformFilter={selectedPlatformFilter}
-        setSelectedPlatformFilter={setSelectedPlatformFilter}
-        postsCount={postCountsObj}
-        workspaces={workspaces}
-        teamMembers={workspaceMembers}
-        onSignOut={() => { setCurrentUser(null); setAuthToken(null); }}
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={() => setIsMobileSidebarOpen(false)}
-      />
-
-      {/* Main Bento container: Header + dynamic Grid view */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+  // Dashboard render function
+  const renderDashboard = () => {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
         
-        {/* Top Header Section */}
-        <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-display font-semibold text-slate-800">
-              <span className="bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">Social</span>Core Hub
-            </h1>
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-600">Active Projects</span>
+              <FolderOpen className="w-5 h-5 text-indigo-600" />
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{workspaces.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Total workspaces</p>
+          </div>
 
-            {/* Quick Stats bar inside Header */}
-            <div className="hidden lg:flex items-center gap-4 border-l border-slate-200 pl-6 text-xs text-slate-500 font-medium">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <strong>{posts.length}</strong> Active scheduled posts
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                <strong>{postCountsObj.approved + postCountsObj.scheduled}</strong> Brand Approved
-              </span>
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-600">Total Posts</span>
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{posts.length}</p>
+            <p className="text-xs text-slate-500 mt-1">{postCountsObj.approved} approved</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-600">Team Members</span>
+              <Users className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{workspaceMembers.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Active collaborators</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-600">Completion Rate</span>
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{posts.length > 0 ? Math.round((postCountsObj.published / posts.length) * 100) : 0}%</p>
+            <p className="text-xs text-slate-500 mt-1">Published content</p>
+          </div>
+        </div>
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Project Overview Widget */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Project Overview</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Total Projects</span>
+                <span className="text-sm font-semibold">{workspaces.length} workspaces</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Active Campaigns</span>
+                <span className="text-sm font-semibold">{posts.length} posts</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Scheduled</span>
+                <span className="text-sm font-semibold">{postCountsObj.scheduled} pending</span>
+              </div>
+            </div>
+
+            {/* Status Flags */}
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <p className="text-sm font-semibold mb-3">Status Overview</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  <span className="text-xs text-slate-600">Published: {postCountsObj.published}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <span className="text-xs text-slate-600">Pending: {postCountsObj.pending}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span className="text-xs text-slate-600">Draft: {postCountsObj.draft}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Live Search Bar */}
-            <div className="relative w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                id="search-posts-input"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search campaigns, tags..."
-                className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-extrabold text-[10px]"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Live Workspace members status indicator row */}
-            <div className="flex -space-x-2 mr-2">
-              {workspaceMembers.map(member => (
-                <img 
-                  key={member.id}
-                  src={member.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random&size=40`} 
-                  title={`${member.name} (${member.role})`}
-                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
-                  alt={member.name}
-                  onError={(e) => {
-                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=6366f1&color=fff&size=40`;
-                  }}
-                />
+          {/* Team Schedule Widget */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Team Members</h3>
+            <div className="space-y-3">
+              {workspaceMembers.slice(0, 5).map(member => (
+                <div key={member.id} className="flex items-center gap-3">
+                  <img 
+                    src={member.avatarUrl || "https://ui-avatars.com/api/?name=" + encodeURIComponent(member.name) + "&background=random"} 
+                    alt={member.name}
+                    className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{member.name}</p>
+                    <p className="text-xs text-slate-500">{member.role}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    member.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {member.status}
+                  </span>
+                </div>
               ))}
             </div>
+          </div>
+        </div>
 
-            {/* Primary Action Button */}
-            <button
-              id="btn-create-post-header"
-              onClick={handleOpenCreateModal}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-sans text-xs px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+        {/* Upcoming Deadlines Widget */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Upcoming Deadlines</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Task</th>
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Status</th>
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Due Date</th>
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Platform</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {posts.slice(0, 5).map(post => (
+                  <tr key={post.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedPostId(post.id)}>
+                    <td className="py-3">
+                      <p className="text-sm font-medium">{post.title}</p>
+                    </td>
+                    <td className="py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusStyle(post.status).badge}`}>
+                        {getStatusStyle(post.status).text}
+                      </span>
+                    </td>
+                    <td className="py-3 text-sm text-slate-600">
+                      {new Date(post.scheduledAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex gap-1">
+                        {post.platforms.map(p => (
+                          <span key={p} className="text-xs bg-slate-100 px-2 py-0.5 rounded">{p}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50 select-none overflow-hidden font-sans text-slate-900">
+      
+      {/* 1. Navigation Sidebar (Left Panel) - 240px fixed width */}
+      <aside className="w-60 bg-slate-900 text-white flex flex-col h-screen shrink-0 shadow-xl">
+        {/* Planables Logo - Top */}
+        <div className="p-4 border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-xl font-bold">P</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold">Planables</h1>
+              <p className="text-[10px] text-slate-400">Social Media Platform</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Links */}
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <button
+            onClick={() => setActiveView('calendar')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeView === 'calendar' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            Calendar
+          </button>
+
+          <button
+            onClick={() => setActiveView('feed')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeView === 'feed' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Layers className="w-5 h-5" />
+            Feed Preview
+          </button>
+
+          <button
+            onClick={() => setActiveView('grid')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeView === 'grid' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <GridIcon className="w-5 h-5" />
+            Instagram Grid
+          </button>
+
+          <button
+            onClick={() => setActiveView('list')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeView === 'list' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <ListIcon className="w-5 h-5" />
+            Bulk List
+          </button>
+
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Management</p>
+          </div>
+
+          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <Users className="w-5 h-5" />
+            Team
+          </button>
+
+          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <BarChart3 className="w-5 h-5" />
+            Reports
+          </button>
+
+          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <Settings className="w-5 h-5" />
+            Settings
+          </button>
+        </nav>
+
+        {/* Planables Logo - Bottom & User Profile */}
+        <div className="p-4 border-t border-slate-700 space-y-3">
+          {/* Workspace Selector */}
+          <div className="relative">
+            <select
+              value={currentWorkspace}
+              onChange={(e) => setCurrentWorkspace(e.target.value)}
+              className="w-full bg-slate-800 text-white text-xs rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <Plus className="w-4 h-4" />
-              <span>Compose Campaign</span>
+              {workspaces.map(ws => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* User Profile & Logout */}
+          <div className="flex items-center gap-3">
+            <img 
+              src={actingUser.avatarUrl || "https://ui-avatars.com/api/?name=" + encodeURIComponent(actingUser.name) + "&background=6366f1&color=fff"} 
+              alt={actingUser.name}
+              className="w-9 h-9 rounded-full border-2 border-slate-600 object-cover"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{actingUser.name}</p>
+              <p className="text-xs text-slate-400 truncate">{actingUser.role}</p>
+            </div>
+            <button
+              onClick={() => { setCurrentUser(null); setAuthToken(null); }}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* 2. Global Header (Top Bar) */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+          <div className="flex items-center gap-4">
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Workspace/Account Selector */}
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
+              <Building2 className="w-4 h-4 text-slate-500" />
+              <span className="text-sm font-medium">{workspaces.find(w => w.id === currentWorkspace)?.name || 'All Workspaces'}</span>
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            </div>
+          </div>
+
+          {/* Quick Tools */}
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative hidden sm:block">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+              />
+            </div>
+
+            {/* Notifications */}
+            <button className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+
+            {/* User Avatar */}
+            <div className="flex items-center gap-2">
+              <img 
+                src={actingUser.avatarUrl || "https://ui-avatars.com/api/?name=" + encodeURIComponent(actingUser.name) + "&background=6366f1&color=fff"} 
+                alt={actingUser.name}
+                className="w-8 h-8 rounded-full border-2 border-slate-200 object-cover"
+              />
+            </div>
           </div>
         </header>
 
-        {/* Outer Main Bento Box View Wrapper */}
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-6 scroll-smooth">
-          
-          {/* Active Workspace Banner Widget */}
-          <div className="mb-5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl p-1 bg-indigo-50 rounded-lg">
-                {workspaces.find(w => w.id === currentWorkspace)?.logo || "🚀"}
-              </span>
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">
-                  {workspaces.find(w => w.id === currentWorkspace)?.name || "No Workspace"}
-                </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  {workspaces.find(w => w.id === currentWorkspace)?.description || ""}
-                </p>
-              </div>
-            </div>
-
-            {/* Workspace action guidelines */}
-            <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 p-2.5 rounded-lg text-[11px] text-indigo-900 font-medium max-w-sm">
-              <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              <span>Simulate client sign-offs by selecting comments, clicking approvals or invoking specialized smart <strong>AI Peer Reviewers</strong>.</span>
-            </div>
-          </div>
-
-          {/* DYNAMIC VIEWS GRID CELLS */}
-
-          {/* View Mode: CALENDAR scheduler */}
-          {activeView === "calendar" && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase font-bold tracking-wider text-slate-500">
-                  Planable Content Calendar (Weekly Grid View)
-                </span>
-                <span className="text-xs text-slate-400 font-medium">
-                  Select a day grid item below to simulate drag-drop reschedule assignment.
-                </span>
-              </div>
-
-              {/* Grid week row */}
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-3.5">
-                {weekDays.map((dayDate, index) => {
-                  const dayDateISOString = dayDate.toDateString();
-                  const postsOnThisDay = filteredPostsByWorkspaceAndPlatform.filter(post => {
-                    return new Date(post.scheduledAt).toDateString() === dayDateISOString;
-                  });
-
-                  const isToday = new Date().toDateString() === dayDateISOString;
-
-                  return (
-                    <div 
-                      key={index} 
-                      className={`bg-white border rounded-xl p-3 min-h-[340px] flex flex-col transition-all duration-200 ${
-                        isToday 
-                          ? "ring-2 ring-indigo-500/20 border-indigo-300" 
-                          : "border-slate-200 hover:border-slate-300 shadow-xs"
-                      }`}
-                    >
-                      {/* Day Heading */}
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                        <span className="text-xs font-bold text-slate-700">
-                          {dayDate.toLocaleDateString("en-US", { weekday: "short" })}
-                        </span>
-                        <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                          isToday ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
-                        }`}>
-                          {dayDate.getDate()}
-                        </span>
-                      </div>
-
-                      {/* Posts Stacked */}
-                      <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
-                        {postsOnThisDay.length === 0 ? (
-                          <div className="flex-1 flex flex-col items-center justify-center p-3 text-center border-2 border-dashed border-slate-100 rounded-lg text-[10px] text-slate-400 font-medium">
-                            No posts scheduled
-                          </div>
-                        ) : (
-                          postsOnThisDay.map(post => {
-                            const isSelected = selectedPostId === post.id;
-                            const statusInfo = getStatusStyle(post.status);
-                            return (
-                              <div
-                                key={post.id}
-                                onClick={() => setSelectedPostId(post.id)}
-                                className={`group p-2.5 border rounded-lg text-left cursor-pointer transition-all duration-150 relative ${
-                                  isSelected 
-                                    ? "bg-slate-50 border-indigo-500 shadow-sm ring-1 ring-indigo-200" 
-                                    : "bg-white hover:bg-slate-50 border-slate-200"
-                                }`}
-                              >
-                                {/* Platform bar indicator */}
-                                <div className="flex flex-wrap gap-1 mb-1.5">
-                                  {post.platforms.map(platformId => {
-                                    const plat = PLATFORMS_CONFIG.find(p => p.id === platformId);
-                                    return (
-                                      <span 
-                                        key={platformId} 
-                                        className={`w-2 h-2 rounded-full ${plat?.color || "bg-slate-400"}`} 
-                                        title={plat?.name}
-                                      />
-                                    );
-                                  })}
-                                </div>
-
-                                <h3 className="text-xs font-semibold text-slate-800 line-clamp-2 leading-tight">
-                                  {post.title}
-                                </h3>
-
-                                <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-normal font-sans">
-                                  {post.content}
-                                </p>
-
-                                {/* Attachment Quick indicator */}
-                                {post.attachments.length > 0 && (
-                                  <div className="mt-2 flex items-center gap-1 text-[9px] text-indigo-600 font-semibold bg-indigo-50/50 px-1.5 py-0.5 rounded self-start border border-indigo-100/30">
-                                    <FileImage className="w-2.5 h-2.5" />
-                                    <span>+{post.attachments.length} Image Asset</span>
-                                  </div>
-                                )}
-
-                                {/* Card Footer: Time + status */}
-                                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] font-mono text-slate-400 font-semibold">
-                                  <span className="flex items-center gap-0.5">
-                                    <Clock className="w-2.5 h-2.5 text-slate-400" />
-                                    {new Date(post.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-
-                                  <span className={`px-1 rounded-sm uppercase tracking-tight text-[9px] font-bold ${statusInfo.badge}`}>
-                                    {statusInfo.text}
-                                  </span>
-                                </div>
-
-                                {/* Simulated drag re-schedule overlay triggers */}
-                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditModal(post);
-                                    }}
-                                    title="Edit post parameters" 
-                                    className="bg-white hover:bg-slate-100 border border-slate-200 p-1 rounded hover:text-indigo-600"
-                                  >
-                                    <Edit3 className="w-2.5 h-2.5" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeletePost(post.id);
-                                    }}
-                                    title="Delete post candidate" 
-                                    className="bg-white hover:bg-red-50 border border-slate-200 p-1 rounded hover:text-red-500"
-                                  >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {/* Day simulator reschedule picker */}
-                      <div className="mt-2 pt-2 border-t border-slate-100">
-                        <select
-                          className="w-full text-[9px] font-semibold text-slate-500 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 rounded p-1 cursor-pointer"
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleReschedule(e.target.value, dayDate.toISOString());
-                              e.target.value = ""; // Reset
-                            }
-                          }}
-                        >
-                          <option value="">⚡ Move post here...</option>
-                          {posts.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.title.substring(0, 15)}...
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* View Mode: STREAM FEED mock social card renderer */}
-          {activeView === "feed" && (
-            <div className="max-w-2xl mx-auto flex flex-col gap-6">
-              <div className="flex items-center justify-between border-b pb-2">
-                <span className="text-xs uppercase font-bold tracking-wider text-slate-500">
-                  Stream Feed previews across simulated platforms
-                </span>
-                <span className="text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">
-                  {filteredPostsByWorkspaceAndPlatform.length} Posts Loaded
-                </span>
-              </div>
-
-              {filteredPostsByWorkspaceAndPlatform.length === 0 ? (
-                <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 text-slate-500">
-                  <p className="font-semibold text-sm">No social candidates matched the current workspace filters.</p>
-                  <button onClick={handleOpenCreateModal} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">
-                    Create A Post Draft
-                  </button>
-                </div>
-              ) : (
-                filteredPostsByWorkspaceAndPlatform.map(post => {
-                  const statusInfo = getStatusStyle(post.status);
-                  const isSelected = selectedPostId === post.id;
-                  
-                  return (
-                    <div 
-                      key={post.id}
-                      onClick={() => setSelectedPostId(post.id)}
-                      className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
-                        isSelected 
-                          ? "border-indigo-500 ring-2 ring-indigo-500/15 shadow-md" 
-                          : "border-slate-200 hover:border-slate-300 shadow-sm"
-                      }`}
-                    >
-                      {/* Sub header for internal metrics */}
-                      <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-600">{post.title}</span>
-                          <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${statusInfo.badge}`}>
-                            {statusInfo.text}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 font-mono font-bold">
-                            SCHEDULED: {new Date(post.scheduledAt).toLocaleString("en-US", { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditModal(post);
-                            }}
-                            className="text-xs text-slate-500 hover:text-indigo-600 p-1"
-                            title="Edit"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* SIMULATED PLATFORM CHASSIS (We preview for the first primary platform designated) */}
-                      {post.platforms.map(platformId => {
-                        return (
-                          <div key={platformId} className="p-5 border-b last:border-b-0 bg-slate-50/20">
-                            <div className="max-w-xl mx-auto bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-                              
-                              {/* Platform identifier header */}
-                              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-                                <div className="flex items-center gap-2">
-                                  {renderPlatformBadgeIcon(platformId)}
-                                  <span className="text-[11px] text-slate-400 font-mono">Live Simulation Mockup</span>
-                                </div>
-                                <span className="text-[11px] text-slate-400 font-medium">Acme Corp Brand Pool</span>
-                              </div>
-
-                              {/* Realistic Profile Metadata - uses acting user data */}
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
-                                  <img 
-                                    src={actingUser?.avatarUrl || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150"} 
-                                    alt={actingUser?.name || "Brand Avatar"} 
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150";
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-slate-800 text-xs">{actingUser?.name || "Acme Corporation"}</span>
-                                    <span className="text-[10px] text-indigo-500">✓</span>
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 block font-mono">
-                                    @{actingUser?.name?.toLowerCase().replace(/\s+/g, '') || 'acmecorp'} • Just now • {platformId.toUpperCase()}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Body Copy Text */}
-                              <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed leading-6 mb-4">
-                                {post.content}
-                              </p>
-
-                              {/* Image or Video attachments preview */}
-                              {post.attachments.map(att => (
-                                <div key={att.id} className="mb-4 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
-                                  {att.type.startsWith("video") ? (
-                                    <div className="relative aspect-video bg-neutral-900 flex flex-col items-center justify-center text-white">
-                                      <Video className="w-12 h-12 text-slate-300 animate-pulse mb-2" />
-                                      <span className="text-xs font-mono bg-black/60 px-3 py-1 rounded font-bold">{att.name}</span>
-                                      <span className="text-[10px] text-slate-400 mt-1">Video Stream Controller Simulator</span>
-                                    </div>
-                                  ) : (
-                                    <img 
-                                      src={att.url} 
-                                      alt={att.name}
-                                      className="w-full max-h-[340px] object-cover"
-                                      onError={(e) => {
-                                        // Fallback if unsplash image fails or simulated url is empty
-                                        e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800";
-                                      }}
-                                    />
-                                  )}
-                                  <div className="bg-slate-50 px-3 py-1.5 flex justify-between items-center border-t border-slate-200">
-                                    <span className="text-[10px] text-slate-500 font-mono font-bold">{att.name}</span>
-                                    <span className="text-[10px] text-xs text-slate-400 font-mono font-semibold">{att.size || "1.5 MB"}</span>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {/* Engagement toolbar mockup */}
-                              <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500 font-semibold font-sans">
-                                <button className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                                  <Heart className="w-4 h-4" />
-                                  <span>248 Likes</span>
-                                </button>
-                                <button className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                                  <MessageCircle className="w-4 h-4" />
-                                  <span>{post.comments.length} Comments</span>
-                                </button>
-                                <button className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                                  <Share2 className="w-4 h-4" />
-                                  <span>Share Asset</span>
-                                </button>
-                              </div>
-
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-
-          {/* View Mode: INSTAGRAM GRID preview box */}
-          {activeView === "grid" && (
-            <div className="flex flex-col gap-4">
-              <div className="border-b pb-2 flex justify-between items-center">
-                <span className="text-xs uppercase font-bold tracking-wider text-slate-500">
-                  Instagram Grid Aesthetic Matcher
-                </span>
-                <span className="text-xs text-slate-400 font-medium">
-                  Showing post layout previews filtering channels containing Instagram.
-                </span>
-              </div>
-
-              {posts.filter(p => p.platforms.includes("instagram")).length === 0 ? (
-                <div className="bg-white p-12 text-center rounded-2xl text-slate-500 max-w-md mx-auto">
-                  <p className="font-semibold text-sm">No posts scheduled for Instagram channel suite</p>
-                  <button onClick={handleOpenCreateModal} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">
-                    Pin Post to Instagram
-                  </button>
-                </div>
-              ) : (
-                <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                  
-                   {/* Account Profile header mockup - uses real user data */}
-                   <div className="flex items-center gap-6 pb-6 mb-6 border-b border-slate-100">
-                     <img 
-                       src={actingUser?.avatarUrl || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150"} 
-                       className="w-16 h-16 rounded-full border border-slate-200 object-cover"
-                       alt={actingUser?.name || "Brand Account Avatar"}
-                       onError={(e) => {
-                         e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150";
-                       }}
-                     />
-                     <div className="flex flex-col gap-1">
-                       <span className="text-lg font-bold text-slate-800">{actingUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'acme_corporation'}</span>
-                       <div className="flex gap-4 text-xs font-medium text-slate-500">
-                         <span><strong>{posts.length}</strong> posts</span>
-                         <span><strong>{Math.floor(posts.length * 1.5)}k</strong> followers</span>
-                         <span><strong>{workspaceMembers.length}</strong> following</span>
-                       </div>
-                       <span className="text-xs font-semibold text-slate-700">{currentWorkspace?.replace('ws-', '').toUpperCase() || 'ACME'} Corp Sustainable Eco Tech 🌍</span>
-                     </div>
-                   </div>
-
-                  {/* 3x3 Photo grid preview matching authentic style */}
-                  <div className="grid grid-cols-3 gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200/60" id="instagram-organic-grid">
-                    {posts.filter(p => p.platforms.includes("instagram")).map(post => {
-                      const imageAttach = post.attachments[0];
-                      const statusInfo = getStatusStyle(post.status);
-                      const isSelected = selectedPostId === post.id;
-
-                      return (
-                        <div
-                          key={post.id}
-                          onClick={() => setSelectedPostId(post.id)}
-                          className={`aspect-square relative group bg-neutral-900 border overflow-hidden cursor-pointer ${
-                            isSelected ? "ring-4 ring-indigo-500/50 border-white z-10" : "border-slate-200"
-                          }`}
-                        >
-                          <img 
-                            src={imageAttach?.url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800"} 
-                            alt={post.title}
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          />
-                          
-                          {/* Hover action and status cover */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2.5">
-                            <span className={`self-start text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${statusInfo.badge}`}>
-                              {statusInfo.text}
-                            </span>
-
-                            <div className="flex flex-col gap-0.5 text-white">
-                              <span className="text-[10px] font-bold truncate">{post.title}</span>
-                              <span className="text-[9px] font-mono text-slate-300">
-                                {new Date(post.scheduledAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* View Mode: BULK LIST GRID view */}
-          {activeView === "list" && (
-            <div className="flex flex-col gap-4">
-              
-              {/* Optional Floating Bulk Action Header */}
-              {selectedPostIds.length > 0 ? (
-                <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-fade-in">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">⚙️</span>
-                    <div>
-                      <h4 className="text-xs font-bold text-indigo-900">
-                        Bulk Action Matrix Workspace
-                      </h4>
-                      <p className="text-[11px] text-indigo-700 font-medium">
-                        You have selected <strong>{selectedPostIds.length}</strong> campaign posts. Apply batch changes across all targets:
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {/* Mass Approve Action */}
-                    <button
-                      id="btn-bulk-mass-approve"
-                      onClick={handleMassApprove}
-                      type="button"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Mass Approve</span>
-                    </button>
-
-                    {/* Batch Delete Action */}
-                    <button
-                      id="btn-bulk-batch-delete"
-                      onClick={handleBatchDelete}
-                      type="button"
-                      className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-semibold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Batch Delete</span>
-                    </button>
-
-                    {/* Bulk Reschedule Action */}
-                    <div className="flex items-center gap-2 bg-white/80 border border-indigo-100 rounded-xl p-1 px-2.5 text-xs text-slate-700">
-                      <span className="text-[10px] text-indigo-900 font-bold uppercase tracking-wider font-mono">Reschedule:</span>
-                      <input 
-                        type="datetime-local" 
-                        id="bulk-target-reschedule-time" 
-                        required
-                        className="bg-white border border-slate-200 rounded text-[11px] p-1 px-2 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer text-slate-800"
-                      />
-                      <button
-                        id="btn-bulk-apply-scheduling"
-                        onClick={() => {
-                          const input = document.getElementById("bulk-target-reschedule-time") as HTMLInputElement;
-                          if (input && input.value) {
-                            handleBulkReschedule(input.value);
-                          } else {
-                            alert("Please select a target date & time first.");
-                          }
-                        }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-3 py-1 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Apply Time
-                      </button>
-                    </div>
-
-                    {/* Cancel Selection */}
-                    <button
-                      onClick={() => setSelectedPostIds([])}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold px-2 hover:underline"
-                    >
-                      Cancel Selection
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-indigo-50/40 border border-indigo-100/40 p-3 rounded-xl text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Tip: select multiple rows below using checkboxes to trigger Mass Approvals, Batch Deletions, or Group Rescheduling in one click.</span>
-                </div>
-              )}
-
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <span className="text-xs uppercase font-bold tracking-wider text-slate-500">
-                    Bulk Planner List Matrix
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {selectedPostIds.length > 0 && (
-                      <span className="text-xs text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-150">
-                        {selectedPostIds.length} Selected
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400 font-semibold font-mono">
-                      Rows: {filteredPostsByWorkspaceAndPlatform.length} entries
-                    </span>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse" id="bulk-list-table">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100/50 text-slate-600 text-xs font-bold">
-                        {/* Checkbox Selector Heading */}
-                        <th className="p-3 pl-4 w-12 text-center">
-                          <input 
-                            id="checkbox-select-all-posts"
-                            type="checkbox" 
-                            checked={filteredPostsByWorkspaceAndPlatform.length > 0 && selectedPostIds.length === filteredPostsByWorkspaceAndPlatform.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPostIds(filteredPostsByWorkspaceAndPlatform.map(p => p.id));
-                              } else {
-                                setSelectedPostIds([]);
-                              }
-                            }}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                          />
-                        </th>
-                        <th className="p-3 pl-2">Campaign Title</th>
-                        <th className="p-3">Destinations</th>
-                        <th className="p-3">Workflow State</th>
-                        <th className="p-3">Target Date/Time</th>
-                        <th className="p-3 text-right pr-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                      {filteredPostsByWorkspaceAndPlatform.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-400">
-                            No posts planned matching current channels or search query.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredPostsByWorkspaceAndPlatform.map(post => {
-                          const isSelected = selectedPostId === post.id;
-                          const isChecked = selectedPostIds.includes(post.id);
-                          const statusInfo = getStatusStyle(post.status);
-                          return (
-                            <tr 
-                              key={post.id}
-                              onClick={() => setSelectedPostId(post.id)}
-                              className={`hover:bg-slate-50 cursor-pointer transition-colors ${
-                                isChecked ? "bg-indigo-50/20" : isSelected ? "bg-slate-50/50" : ""
-                              }`}
-                            >
-                              {/* Row Checkbox SelectorCell */}
-                              <td className="p-3 pl-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                <input 
-                                  id={`checkbox-select-post-${post.id}`}
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedPostIds(prev => [...prev, post.id]);
-                                    } else {
-                                      setSelectedPostIds(prev => prev.filter(id => id !== post.id));
-                                    }
-                                  }}
-                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                                />
-                              </td>
-                              
-                              <td className="p-3 pl-2 font-bold text-slate-800">
-                                <div className="flex flex-col">
-                                  <span>{post.title}</span>
-                                  <span className="text-[10px] text-slate-400 truncate max-w-sm font-normal mt-0.5">{post.content}</span>
-                                </div>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex flex-wrap gap-1">
-                                  {post.platforms.map(platformId => (
-                                    <span key={platformId} className="text-[10px] uppercase font-mono font-bold bg-slate-100 px-1 py-0.2 rounded text-slate-600">
-                                      {platformId}
-                                    </span>
-                                  ))}
-                                </div>
-                              </td>
-                              <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded-full uppercase text-[9px] font-bold ${statusInfo.badge}`}>
-                                  {statusInfo.text}
-                                </span>
-                              </td>
-                              <td className="p-3 font-mono text-slate-500">
-                                {new Date(post.scheduledAt).toLocaleString("en-US", { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </td>
-                              <td className="p-3 text-right pr-4">
-                                <div className="inline-flex gap-2">
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditModal(post);
-                                    }}
-                                    className="text-xs bg-white hover:bg-slate-100 hover:text-indigo-600 border border-slate-200 px-2 py-1 rounded"
-                                  >
-                                    Edit Info
-                                  </button>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeletePost(post.id);
-                                    }}
-                                    className="text-xs bg-white hover:bg-red-50 hover:text-red-500 border border-slate-200 px-2 py-1 rounded"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
+        {/* 3. Central Grid Widgets (Main Workspace) */}
+        <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
+          {renderDashboard()}
         </main>
       </div>
 
-      {/* 3. Team Collaboration, approvals & AI reviewer Sidebar Panel */}
+      {/* 3. Team Collaboration Sidebar Panel */}
       {isCollabPanelOpen && (
-        <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 font-sans shadow-sm" id="collab-panel">
-          
-          {/* Detail Panel Header */}
+        <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 shadow-sm">
+          {/* Panel Header */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex-1 min-w-0">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Active Campaign Block</span>
-              <span className="font-display font-semibold text-xs text-slate-800 line-clamp-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Active Campaign</span>
+              <span className="font-semibold text-xs text-slate-800 line-clamp-1">
                 {selectedPost ? selectedPost.title : "No post selected"}
               </span>
             </div>
-
-            <div className="flex items-center gap-2 ml-2">
-              <span className="text-[11px] font-semibold text-slate-500 font-mono hidden sm:inline">Feedback Stream</span>
-              <button
-                onClick={() => setIsCollabPanelOpen(false)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                title="Close panel"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-        {/* Selected Post Overview */}
-        {selectedPost ? (
-          <div className="flex-1 overflow-y-auto flex flex-col">
-            
-            {/* Quick action state locker for Client approval simulations */}
-            <div className="p-4 border-b border-indigo-100 bg-indigo-50/20">
-              <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-2.5 block">
-                Workflow Approval Sign-off
-              </label>
-              
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  id="btn-approve-post"
-                  onClick={() => handleUpdateStatus("approved")}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all ${
-                    selectedPost.status === "approved"
-                      ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
-                      : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Approved (Client)</span>
-                </button>
-
-                <button
-                  id="btn-lock-post"
-                  onClick={() => handleUpdateStatus("scheduled")}
-                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all ${
-                    selectedPost.status === "scheduled"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
-                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Locked & Ready</span>
-                </button>
-              </div>
-
-                {/* ─── Publish Now button (direct HTTP publish) ─── */}
-              <button
-                id="btn-publish-now"
-                onClick={() => handlePublishNow(selectedPost.id)}
-                disabled={selectedPost.status === "published" || selectedPost.status === "publishing"}
-                className={`w-full mt-2.5 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
-                  selectedPost.status === "published"
-                    ? "bg-blue-50 border-blue-200 text-blue-400 cursor-not-allowed"
-                    : selectedPost.status === "publishing"
-                    ? "bg-amber-50 border-amber-200 text-amber-600 cursor-wait"
-                    : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                }`}
-              >
-                {selectedPost.status === "publishing" ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Publishing...</span>
-                  </>
-                ) : selectedPost.status === "published" ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Published</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Publish Now</span>
-                  </>
-                )}
-              </button>
-
-              {/* Reset to draft option */}
-              {selectedPost.status !== "draft" && selectedPost.status !== "published" && (
-                <button
-                  onClick={() => handleUpdateStatus("draft")}
-                  className="w-full text-center mt-1.5 text-[10px] text-slate-500 hover:text-indigo-600 font-medium underline"
-                >
-                  Revert status to Draft Planning
-                </button>
-              )}
-            </div>
-
-            {/* AI SYSTEM REVIEW PANEL (COLLABORATOR SIMULATORS) */}
-            <div className="p-4 border-b border-rose-100 bg-rose-50/25">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1 focus:outline-none">
-                  <Sparkles className="w-3 h-3 text-rose-500" />
-                  <span>AI Expert Reviewers Pool</span>
-                </span>
-                <span className="text-[9px] text-rose-600 bg-rose-50 border border-rose-100 font-bold px-1.5 py-0.2 rounded">
-                  Gemini Flash 3
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium mb-3">
-                Click an expert to get instant feedback commentary and dynamic copy suggestions.
-              </p>
-
-              {/* 4 buttons representing simulated agencies */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  id="btn-ai-jane"
-                  onClick={() => handleTriggerPersonaReview("jane")}
-                  disabled={!!aiReviewerLoading}
-                  className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 p-2 rounded-lg text-left text-xs font-semibold focus:outline-none disabled:opacity-50"
-                >
-                  <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=40" className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0" alt="Jane" />
-                  <div className="truncate">
-                    <span className="text-[10px] block font-bold text-slate-700">Jane (Client)</span>
-                    <span className="text-[9px] text-slate-400 font-medium truncate block">
-                      {aiReviewerLoading === "jane" ? "Analyzing..." : "Brand Voice"}
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  id="btn-ai-lucas"
-                  onClick={() => handleTriggerPersonaReview("lucas")}
-                  disabled={!!aiReviewerLoading}
-                  className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 p-2 rounded-lg text-left text-xs font-semibold focus:outline-none disabled:opacity-50"
-                >
-                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=40" className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0" alt="Lucas" />
-                  <div className="truncate">
-                    <span className="text-[10px] block font-bold text-slate-700">Lucas (SEO)</span>
-                    <span className="text-[9px] text-slate-400 font-medium truncate block">
-                      {aiReviewerLoading === "lucas" ? "Optimizing..." : "Hooks & Reach"}
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  id="btn-ai-elena"
-                  onClick={() => handleTriggerPersonaReview("elena")}
-                  disabled={!!aiReviewerLoading}
-                  className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 p-2 rounded-lg text-left text-xs font-semibold focus:outline-none disabled:opacity-50"
-                >
-                  <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=40" className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0" alt="Elena" />
-                  <div className="truncate">
-                    <span className="text-[10px] block font-bold text-slate-700">Elena (CD)</span>
-                    <span className="text-[9px] text-slate-400 font-medium truncate block">
-                      {aiReviewerLoading === "elena" ? "Designing..." : "Aesthetic Tone"}
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  id="btn-ai-dave"
-                  onClick={() => handleTriggerPersonaReview("dave")}
-                  disabled={!!aiReviewerLoading}
-                  className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 p-2 rounded-lg text-left text-xs font-semibold focus:outline-none disabled:opacity-50"
-                >
-                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=40" className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0" alt="Dave" />
-                  <div className="truncate">
-                    <span className="text-[10px] block font-bold text-slate-700">Dave (Writer)</span>
-                    <span className="text-[9px] text-slate-400 font-medium truncate block">
-                      {aiReviewerLoading === "dave" ? "Correcting..." : "Proofreader"}
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* FEEDBACK COMMENT THREADS & AUDIT LOG FLOW */}
-            <div className="p-4 flex-1 flex flex-col gap-4">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                Collaboration thread ({selectedPost.comments.length})
-              </span>
-
-              {/* Thread list */}
-              <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
-                {selectedPost.comments.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-100 rounded-xl text-slate-400 text-xs">
-                    No comments yet. Request review by tagging coworkers or running an AI agent above.
-                  </div>
-                ) : (
-                  [...selectedPost.comments].reverse().map(comment => (
-                    <div key={comment.id} className="flex gap-2.5 items-start text-xs leading-relaxed">
-                      <img 
-                        src={comment.author.avatarUrl} 
-                        className="w-7 h-7 rounded-full object-cover shrink-0 border border-slate-100 mt-0.5" 
-                        alt={comment.author.name}
-                      />
-                      <div className="flex-1 min-w-0 bg-slate-50 hover:bg-slate-100/70 py-2 px-3 rounded-tr-xl rounded-b-xl border border-slate-200/50">
-                        <div className="flex items-baseline justify-between gap-2 mb-1">
-                          <span className="font-bold text-slate-800 text-[11px] truncate">
-                            {comment.author.name}
-                          </span>
-                          <span className="text-[9px] text-slate-400 shrink-0 font-mono">
-                            {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p className="text-slate-600 text-[11px] leading-5">{comment.text}</p>
-
-                        {/* Rendering dynamic suggestions from AI models */}
-                        {comment.suggestions && comment.suggestions.length > 0 && (
-                          <div className="mt-2.5 pt-2 border-t border-indigo-100/60 flex flex-col gap-1 text-[10px] text-slate-500 font-semibold font-sans">
-                            <span className="text-indigo-600 flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5" /> Core Action Suggestions:
-                            </span>
-                            <ul className="list-disc pl-3.5 space-y-0.5 text-[10px] text-slate-600 list-outside">
-                              {comment.suggestions.map((s, idx) => (
-                                <li key={idx}>
-                                  <button
-                                    onClick={() => {
-                                      // Quickly suggest rewriting text inline
-                                      if (confirm(`Do you wish to insert suggestion: "${s}"?`)) {
-                                        setFormContent(prev => prev + `\n\n- ${s}`);
-                                        alert("Suggestion appended to buffer draft. Open Compose modal to review.");
-                                      }
-                                    }}
-                                    className="text-left hover:underline text-slate-700 hover:text-indigo-600 font-medium"
-                                  >
-                                    {s}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-
-                {/* Audit Trial activity history logs inside Bento pipeline */}
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-1 mb-2">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Campaign History Log</span>
-                    <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono font-bold">Audit Trail</span>
-                  </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {selectedPost.logs.map(log => (
-                      <div key={log.id} className="text-[10px] text-slate-500 font-medium">
-                        <span className="font-bold text-slate-700">{log.user.name}</span>
-                        <span className="mx-1 text-slate-400">{log.action}</span>
-                        <span className="text-[9px] text-slate-300 font-mono font-normal">
-                          ({new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Submit regular human comments */}
-              <form onSubmit={handleAddComment} className="mt-auto pt-3 border-t border-slate-100 flex gap-2">
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Ask a question or request revision..."
-                  className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-lg text-slate-800"
-                />
-                <button
-                  type="submit"
-                  disabled={!commentText.trim()}
-                  className="bg-indigo-600 text-white p-2 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-all font-bold text-xs"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-
-            </div>
-
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400 text-center text-xs">
-            <Info className="w-8 h-8 mb-2 text-slate-300" />
-            <p className="font-semibold text-sm text-slate-600 mb-1">No post selected</p>
-            <p>Select a post from the feed or calendar to view collaboration details.</p>
             <button
               onClick={() => setIsCollabPanelOpen(false)}
-              className="mt-4 px-3 py-1.5 text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
             >
-              Close Panel
+              <X className="w-4 h-4" />
             </button>
           </div>
-        )}
-      </aside>
-      )}
 
-      {/* ============================================================== */}
-      {/* CREATION & AI OPTIMIZER modal box (Rich Overlay Chassis) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden font-sans">
-            
-            {/* Modal Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-500" />
-                <h3 className="font-display font-semibold text-sm text-slate-800">
-                  {editingPost ? "Modify Social Campaign Asset" : "Compose Multi-Platform Social Campaign"}
-                </h3>
-              </div>
-
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Form Content */}
-            <form onSubmit={handleSavePost} className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              
-              {/* Form entries on the left */}
-              <div className="flex-1 p-5 overflow-y-auto flex flex-col gap-4 border-r border-slate-100">
-                
-                {/* Campaign Title & Metadata tagging */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Campaign Header Label</label>
-                  <input
-                    id="form-post-title"
-                    type="text"
-                    required
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="Enter short internal campaign reference..."
-                    className="px-3 py-2 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-lg text-xs text-slate-800 font-semibold"
-                  />
+          {/* Panel Content */}
+          {selectedPost ? (
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Status</p>
+                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusStyle(selectedPost.status).badge}`}>
+                    {getStatusStyle(selectedPost.status).text}
+                  </span>
                 </div>
-
-                {/* Platform channels selectors */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Target Social Outlets</label>
-                  <div className="flex flex-wrap gap-2">
-                    {PLATFORMS_CONFIG.map(plat => {
-                      const isSelected = formPlatforms.includes(plat.id);
-                      return (
-                        <button
-                          id={`btn-select-platform-${plat.id}`}
-                          key={plat.id}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setFormPlatforms(prev => prev.filter(p => p !== plat.id));
-                            } else {
-                              setFormPlatforms(prev => [...prev, plat.id]);
-                            }
-                          }}
-                          className={`flex items-center gap-2 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
-                            isSelected 
-                              ? "bg-slate-900 border-slate-900 text-white" 
-                              : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
-                          }`}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                          <span>{plat.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Content</p>
+                  <p className="text-sm text-slate-700">{selectedPost.content}</p>
                 </div>
-
-                {/* Draft text copy and character count */}
-                <div className="flex flex-col gap-1 relative">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Post Caption Draft Narrative</label>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Chars: {formContent.length}
-                    </span>
-                  </div>
-
-                  <textarea
-                    id="form-post-content"
-                    required
-                    rows={6}
-                    value={formContent}
-                    onChange={(e) => setFormContent(e.target.value)}
-                    placeholder="Engaging copy text starting with hooks and emojis..."
-                    className="p-3 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-lg text-xs text-slate-800 font-sans leading-5 resize-none bg-slate-50/50 focus:bg-white"
-                  />
-                </div>
-
-                {/* Asset references / attachments manager */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Campaign Media Assets</label>
-                  
-                  {/* List active attachments */}
-                  <div className="flex flex-col gap-1.5">
-                    {formAttachments.map(att => (
-                      <div key={att.id} className="flex items-center justify-between text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">🖼️</span>
-                          <span className="font-bold text-slate-700 truncate max-w-xs">{att.name}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAttachment(att.id)}
-                          className="text-red-500 hover:text-red-700 font-bold"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Platforms</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedPost.platforms.map(p => (
+                      <span key={p} className="text-xs bg-slate-100 px-2 py-0.5 rounded">{p}</span>
                     ))}
                   </div>
-
-                  {/* Add simulated asset link */}
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 border border-slate-200 rounded-lg">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] text-slate-400 font-bold">Image URL</span>
-                      <input 
-                        type="text" 
-                        value={simulatedMediaUrl}
-                        onChange={(e) => setSimulatedMediaUrl(e.target.value)}
-                        placeholder="https://images.unsplash.com/... or base64"
-                        className="p-1 px-2 border rounded bg-white text-[11px]"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] text-slate-400 font-bold">Asset Label</span>
-                      <div className="flex gap-1.5">
-                        <input 
-                          type="text" 
-                          value={simulatedMediaName}
-                          onChange={(e) => setSimulatedMediaName(e.target.value)}
-                          placeholder="promo_pack_photo.jpg"
-                          className="p-1 px-2 border rounded bg-white text-[11px] flex-1"
-                        />
-                        <button 
-                          type="button"
-                          onClick={handleAddSimulatedAttachment}
-                          className="bg-slate-900 text-white font-bold px-2 rounded font-mono text-[11px] shrink-0"
-                        >
-                          Attach
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-slate-400">
-                    💡 Drag & drop mock: paste any unsplash image address to simulate visual placements perfectly.
-                  </div>
                 </div>
-
-                {/* Scheduling timestamp & workspace custom tags */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Scheduled Time Date</label>
-                    <input
-                      id="form-post-scheduled-at"
-                      type="datetime-local"
-                      required
-                      value={formScheduledAt}
-                      onChange={(e) => setFormScheduledAt(e.target.value)}
-                      className="px-3 py-2 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-lg text-xs text-slate-700 font-mono"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Category Tags</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={formTagInput}
-                        onChange={(e) => setFormTagInput(e.target.value)}
-                        placeholder="Eco Launch"
-                        className="px-2 py-1 border border-slate-200 rounded text-xs flex-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddTag}
-                        className="bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs font-bold"
-                      >
-                        + List
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {formTags.map(t => (
-                        <span key={t} className="text-[10px] font-semibold bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 text-indigo-700 font-sans flex items-center gap-1">
-                          {t}
-                          <button type="button" onClick={() => handleRemoveTag(t)} className="font-extrabold text-[9px] text-indigo-400 hover:text-indigo-700">✕</button>
-                        </span>
+                <div className="pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 mb-2">Comments ({selectedPost.comments.length})</p>
+                  {selectedPost.comments.length === 0 ? (
+                    <p className="text-xs text-slate-400">No comments yet</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {selectedPost.comments.map(comment => (
+                        <div key={comment.id} className="bg-slate-50 p-2 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <img src={comment.author.avatarUrl} alt={comment.author.name} className="w-6 h-6 rounded-full" />
+                            <p className="text-xs font-semibold">{comment.author.name}</p>
+                          </div>
+                          <p className="text-xs text-slate-600">{comment.text}</p>
+                        </div>
                       ))}
                     </div>
-                  </div>
+                  )}
                 </div>
-
-              </div>
-
-              {/* Gemini AI optimizer utility on the right */}
-              <div className="w-80 p-5 bg-slate-50/50 border-t md:border-t-0 flex flex-col gap-4 overflow-y-auto">
-                <div className="flex items-center gap-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1.5 rounded-lg">
-                  <Sparkles className="w-4 h-4 animate-bounce" />
-                  <span className="text-xs font-display font-semibold uppercase tracking-wider">Gemini Intelligent Assistant</span>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Rewrite & Modify Draft with AI</span>
-                  <p className="text-[10px] text-slate-500 font-medium">Select your desired styling transformation process and watch characters refine instantly:</p>
-                  
-                  <div className="flex flex-col gap-1.5">
-                    <button
-                      id="ai-action-expand"
-                      type="button"
-                      disabled={aiAssistantLoading}
-                      onClick={() => handleOptimizeWithGemini("expand")}
-                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-2 text-left text-xs text-slate-700 font-semibold flex items-center justify-between"
-                    >
-                      <span>✨ Expand & Enrich Copy</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-
-                    <button
-                      id="ai-action-shorten"
-                      type="button"
-                      disabled={aiAssistantLoading}
-                      onClick={() => handleOptimizeWithGemini("shorten")}
-                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-2 text-left text-xs text-slate-700 font-semibold flex items-center justify-between"
-                    >
-                      <span>✂️ Condense to Punchy Copy</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-
-                    <button
-                      id="ai-action-funny"
-                      type="button"
-                      disabled={aiAssistantLoading}
-                      onClick={() => handleOptimizeWithGemini("make_funny")}
-                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-2 text-left text-xs text-slate-700 font-semibold flex items-center justify-between"
-                    >
-                      <span>🤡 Infuse Wittiness & Emojis</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-
-                    <button
-                      id="ai-action-pro"
-                      type="button"
-                      disabled={aiAssistantLoading}
-                      onClick={() => handleOptimizeWithGemini("make_professional")}
-                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg p-2 text-left text-xs text-slate-700 font-semibold flex items-center justify-between"
-                    >
-                      <span>👔 Polish to thought-leadership</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Gemini Loading / output results pane */}
-                {aiAssistantLoading && (
-                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-3 animate-pulse">
-                    <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
-                    <span className="text-[10px] text-indigo-800 font-semibold">Gemini LLM is writing copy alternatives...</span>
-                  </div>
-                )}
-
-                {aiAssistantJustification && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[10px] font-sans leading-5 text-emerald-800">
-                    <span className="font-bold block text-[11px] mb-1">AI Strategy Pitch:</span>
-                    {aiAssistantJustification}
-                  </div>
-                )}
-
-                {aiAssistantHashtags.length > 0 && (
-                  <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                    <span className="text-[10px] font-bold text-indigo-800 block mb-1">AI Suggested Hashtags:</span>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {aiAssistantHashtags.map(tag => (
-                        <span key={tag} className="text-[9px] font-mono font-bold bg-white text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleApplyAiHashtags}
-                      className="w-full bg-indigo-600 text-white font-semibold text-[10px] py-1.5 rounded-md hover:bg-indigo-700"
-                    >
-                      Intrude Hashtags Into Copy
-                    </button>
-                  </div>
-                )}
-
-                <div className="mt-auto bg-slate-100 p-2.5 rounded-lg text-[10px] text-slate-500 font-medium">
-                  <strong>Collab Note:</strong> Real-time changes persist in Local Storage. Simulating approvals will trigger dynamic comments.
-                </div>
-
-              </div>
-
-            </form>
-
-            {/* Modal Actions Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
-              <span className="text-[11px] text-slate-400 font-medium font-mono">SOCIALCORE INTEL PLANNED ENGINE</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 px-4 py-2 rounded-lg text-xs outline-none"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSavePost}
-                  disabled={!formTitle || !formContent}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-xs shadow-sm disabled:opacity-50"
-                >
-                  Save & Queue Core Draft
-                </button>
               </div>
             </div>
-
-          </div>
-        </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <p className="text-sm text-slate-500 text-center">Select a post to view collaboration details</p>
+            </div>
+          )}
+        </aside>
       )}
-
     </div>
   );
 }
