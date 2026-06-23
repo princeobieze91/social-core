@@ -44,7 +44,14 @@ import {
   FolderOpen,
   FileText,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Monitor,
+  Smartphone,
+  Hash,
+  Flag,
+  Target,
+  Save,
+  Image as ImageIcon
 } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import LoginRegister from "./components/LoginRegister";
@@ -123,6 +130,30 @@ export default function App() {
 
   // New Comment Input state
   const [commentText, setCommentText] = useState("");
+
+  // Content Detail Tray state
+  const [editorTitle, setEditorTitle] = useState("");
+  const [editorContent, setEditorContent] = useState("");
+  const [simulatorMode, setSimulatorMode] = useState<"desktop" | "mobile">("desktop");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [campaignObjectives, setCampaignObjectives] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
+  const [approvals, setApprovals] = useState<Record<string, boolean>>({});
+
+  // Sync editor state when selectedPost changes
+  useEffect(() => {
+    if (selectedPost) {
+      setEditorTitle(selectedPost.title);
+      setEditorContent(selectedPost.content);
+      setTargetAudience((selectedPost as any).targetAudience || "");
+      setCampaignObjectives((selectedPost as any).campaignObjectives || "");
+      setInternalNotes((selectedPost as any).internalNotes || "");
+      // Reset approvals
+      const initialApprovals: Record<string, boolean> = {};
+      workspaceMembers.forEach(m => { initialApprovals[m.id] = false; });
+      setApprovals(initialApprovals);
+    }
+  }, [selectedPost?.id]);
 
   // Sync user session details dynamically
   useEffect(() => {
@@ -285,7 +316,6 @@ export default function App() {
   // Helper date generators for Calendar headers
   const getDaysOfWeek = () => {
     const today = new Date();
-    // Start calendar from Monday of current week
     const currentDay = today.getDay();
     const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
     const monday = new Date();
@@ -976,6 +1006,48 @@ export default function App() {
     }
   }, []);
 
+  // Save editor changes back to post
+  const handleSaveEditorChanges = () => {
+    if (!selectedPost || !editorTitle.trim()) return;
+    
+    const updatedLogs = [
+      ...selectedPost.logs,
+      {
+        id: "log-" + Date.now(),
+        user: { name: actingUser?.name || "User", role: actingUser?.role || "" },
+        action: "Updated content via Content Detail Tray",
+        timestamp: new Date().toISOString()
+      }
+    ];
+
+    setPosts(prev => prev.map(p => {
+      if (p.id === selectedPost.id) {
+        return {
+          ...p,
+          title: editorTitle,
+          content: editorContent,
+          logs: updatedLogs,
+          // Store extra fields as extended properties (in real app these would be DB columns)
+          ...(targetAudience ? { targetAudience } : {}),
+          ...(campaignObjectives ? { campaignObjectives } : {}),
+          ...(internalNotes ? { internalNotes } : {})
+        };
+      }
+      return p;
+    }));
+  };
+
+  // Toggle approval for a stakeholder
+  const toggleApproval = (memberId: string) => {
+    setApprovals(prev => ({
+      ...prev,
+      [memberId]: !prev[memberId]
+    }));
+  };
+
+  // Check if all required stakeholders approved
+  const allApproved = workspaceMembers.length > 0 && workspaceMembers.every(m => approvals[m.id]);
+
   if (consentProvider) {
     return <OAuthConsent provider={consentProvider} onBack={() => { setConsentProvider(null); window.history.replaceState({}, "", "/"); }} />;
   }
@@ -1040,61 +1112,66 @@ export default function App() {
             <h3 className="text-lg font-semibold mb-4">Project Overview</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Total Projects</span>
-                <span className="text-sm font-semibold">{workspaces.length} workspaces</span>
-              </div>
-              <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Active Campaigns</span>
-                <span className="text-sm font-semibold">{posts.length} posts</span>
+                <span className="text-sm font-semibold">{posts.length} total content pieces</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Scheduled</span>
-                <span className="text-sm font-semibold">{postCountsObj.scheduled} pending</span>
+              
+              {/* Progress Bar */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-500">Published vs Scheduled</span>
+                  <span className="text-xs font-semibold">{postCountsObj.published}/{posts.length}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div 
+                    className="bg-indigo-600 h-2 rounded-full transition-all"
+                    style={{ width: `${posts.length > 0 ? (postCountsObj.published / posts.length) * 100 : 0}%` }}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Status Flags */}
-            <div className="mt-6 pt-6 border-t border-slate-100">
-              <p className="text-sm font-semibold mb-3">Status Overview</p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <span className="text-xs text-slate-600">Published: {postCountsObj.published}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                  <span className="text-xs text-slate-600">Pending: {postCountsObj.pending}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span className="text-xs text-slate-600">Draft: {postCountsObj.draft}</span>
-                </div>
+              {/* Status Flags */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  On Track: {postCountsObj.published}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  Pending: {postCountsObj.pending + postCountsObj.scheduled}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  Blocked: {postCountsObj.draft}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Team Schedule Widget */}
+          {/* Workload & Resource Allocation Widget */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Team Members</h3>
+            <h3 className="text-lg font-semibold mb-4">Workload Allocation</h3>
             <div className="space-y-3">
-              {workspaceMembers.slice(0, 5).map(member => (
-                <div key={member.id} className="flex items-center gap-3">
-                  <img 
-                    src={member.avatarUrl || "https://ui-avatars.com/api/?name=" + encodeURIComponent(member.name) + "&background=random"} 
-                    alt={member.name}
-                    className="w-10 h-10 rounded-full border border-slate-200 object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{member.name}</p>
-                    <p className="text-xs text-slate-500">{member.role}</p>
+              {workspaceMembers.slice(0, 4).map(member => {
+                const memberPosts = posts.filter(p => p.comments.some(c => c.author.id === member.id));
+                const utilization = Math.min(100, Math.round((memberPosts.length / Math.max(1, posts.length)) * 100));
+                return (
+                  <div key={member.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-slate-700 truncate">{member.name}</span>
+                      <span className={`font-semibold ${utilization > 80 ? 'text-red-600' : utilization > 50 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {utilization}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full ${utilization > 80 ? 'bg-red-500' : utilization > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${utilization}%` }}
+                      />
+                    </div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    member.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {member.status}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1107,8 +1184,9 @@ export default function App() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="pb-2 text-xs font-semibold text-slate-600">Task</th>
-                  <th className="pb-2 text-xs font-semibold text-slate-600">Status</th>
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Parent Campaign</th>
                   <th className="pb-2 text-xs font-semibold text-slate-600">Due Date</th>
+                  <th className="pb-2 text-xs font-semibold text-slate-600">Owner</th>
                   <th className="pb-2 text-xs font-semibold text-slate-600">Platform</th>
                 </tr>
               </thead>
@@ -1119,16 +1197,24 @@ export default function App() {
                       <p className="text-sm font-medium">{post.title}</p>
                     </td>
                     <td className="py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusStyle(post.status).badge}`}>
-                        {getStatusStyle(post.status).text}
-                      </span>
+                      <span className="text-xs text-slate-500">{post.tags[0] || "General"}</span>
                     </td>
                     <td className="py-3 text-sm text-slate-600">
                       {new Date(post.scheduledAt).toLocaleDateString()}
                     </td>
                     <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-indigo-700">
+                            {post.comments[0]?.author.name?.charAt(0) || "?"}
+                          </span>
+                        </div>
+                        <span className="text-xs">{post.comments[0]?.author.name || "Unassigned"}</span>
+                      </div>
+                    </td>
+                    <td className="py-3">
                       <div className="flex gap-1">
-                        {post.platforms.map(p => (
+                        {post.platforms.slice(0, 2).map(p => (
                           <span key={p} className="text-xs bg-slate-100 px-2 py-0.5 rounded">{p}</span>
                         ))}
                       </div>
@@ -1327,17 +1413,313 @@ export default function App() {
         </main>
       </div>
 
-      {/* 3. Team Collaboration Sidebar Panel */}
-      {isCollabPanelOpen && (
-        <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 shadow-sm">
+      {/* 4. Content Detail Side Tray (Flyout Panel) */}
+      {isCollabPanelOpen && selectedPost && (
+        <aside className="w-[480px] border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 shadow-sm">
           {/* Panel Header */}
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div className="flex-1 min-w-0">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Active Campaign</span>
-              <span className="font-semibold text-xs text-slate-800 line-clamp-1">
-                {selectedPost ? selectedPost.title : "No post selected"}
-              </span>
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Active Campaign Block</span>
+              <button
+                onClick={() => setIsCollabPanelOpen(false)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
+            
+            {/* Editable Title */}
+            <input
+              type="text"
+              value={editorTitle}
+              onChange={(e) => setEditorTitle(e.target.value)}
+              className="w-full text-lg font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none mb-2 pb-1"
+            />
+            
+            {/* Campaign ID & Meta */}
+            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mb-3">
+              <span>ID: {selectedPost.id.substring(0, 8).toUpperCase()}</span>
+              <span>•</span>
+              <span>{selectedPost.scheduledAt ? new Date(selectedPost.scheduledAt).toLocaleString() : "Not scheduled"}</span>
+            </div>
+
+            {/* Target Channels */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {selectedPost.platforms.map(p => (
+                <span key={p} className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold px-2 py-1 rounded-md">
+                  {p}
+                </span>
+              ))}
+            </div>
+
+            {/* Status Lifecycle Badge */}
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${getStatusStyle(selectedPost.status).badge}`}>
+                {getStatusStyle(selectedPost.status).text}
+              </span>
+              <div className="flex gap-1">
+                {['draft', 'pending', 'approved', 'scheduled', 'published'].map((status, idx) => {
+                  const currentIdx = ['draft', 'pending', 'approved', 'scheduled', 'published'].indexOf(selectedPost.status);
+                  const isActive = idx <= currentIdx;
+                  return (
+                    <div key={status} className={`w-2 h-2 rounded-full ${isActive ? 'bg-indigo-500' : 'bg-slate-200'}`} title={status} />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-100 bg-slate-50/30">
+            <button className="flex-1 px-4 py-2 text-xs font-semibold text-indigo-600 border-b-2 border-indigo-600">Creative</button>
+            <button className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700">Collaboration</button>
+            <button className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700">Context</button>
+          </div>
+
+          {/* Panel Content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Creative Canvas Section */}
+            <div className="p-4 space-y-4">
+              {/* Copywriter Editor */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-700">Copywriter Editor</label>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                    <span>{editorContent.length} chars</span>
+                    <span>•</span>
+                    <span>{editorContent.split('#').length - 1} hashtags</span>
+                  </div>
+                </div>
+                <textarea
+                  value={editorContent}
+                  onChange={(e) => setEditorContent(e.target.value)}
+                  placeholder="Write your content here..."
+                  className="w-full h-32 p-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">😀 Emoji</button>
+                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600"># Hashtag</button>
+                  <button className="text-[10px] px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">@ Mention</button>
+                </div>
+              </div>
+
+              {/* Media Asset Vault */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-2 block">Media Asset Vault</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedPost.attachments.map(att => (
+                    <div key={att.id} className="relative group aspect-square bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                      {att.type.startsWith('image') ? (
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Video className="w-8 h-8 text-slate-400" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button className="p-1.5 bg-white rounded-lg text-red-500 hover:bg-red-50">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5">
+                        <p className="text-[9px] text-white truncate">{att.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <button className="aspect-square border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
+                    <Plus className="w-6 h-6 mb-1" />
+                    <span className="text-[10px]">Add Media</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Simulator Window */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-700">Live Simulator</label>
+                  <div className="flex bg-slate-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setSimulatorMode('desktop')}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${simulatorMode === 'desktop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
+                    >
+                      <Monitor className="w-3 h-3 inline mr-1" />
+                      Desktop
+                    </button>
+                    <button
+                      onClick={() => setSimulatorMode('mobile')}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${simulatorMode === 'mobile' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
+                    >
+                      <Smartphone className="w-3 h-3 inline mr-1" />
+                      Mobile
+                    </button>
+                  </div>
+                </div>
+                <div className={`border border-slate-200 rounded-lg overflow-hidden bg-slate-50 ${simulatorMode === 'mobile' ? 'max-w-[240px] mx-auto' : 'w-full'}`}>
+                  <div className={`bg-white p-3 ${simulatorMode === 'mobile' ? 'text-xs' : 'text-sm'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
+                        {actingUser.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">{editorTitle || "Post Title"}</p>
+                        <p className="text-slate-400 text-[10px]">Just now</p>
+                      </div>
+                    </div>
+                    <p className="text-slate-700 whitespace-pre-wrap line-clamp-4">{editorContent}</p>
+                    {selectedPost.attachments[0] && (
+                      <div className="mt-2 rounded-lg overflow-hidden">
+                        <img src={selectedPost.attachments[0].url} alt="" className="w-full h-32 object-cover" />
+                      </div>
+                    )}
+                    <div className="flex gap-3 mt-3 text-slate-400 text-xs">
+                      <span>❤️ 24</span>
+                      <span>💬 3</span>
+                      <span>🔗 Share</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Collaboration & Context Hub */}
+            <div className="border-t border-slate-100 p-4 space-y-4">
+              {/* Approval Gatekeeper */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-2 block">Approval Gatekeeper</label>
+                <div className="space-y-2">
+                  {workspaceMembers.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src={member.avatarUrl || "https://ui-avatars.com/api/?name=" + encodeURIComponent(member.name) + "&background=random&size=32"} 
+                          alt={member.name}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="text-xs font-medium text-slate-700">{member.name}</p>
+                          <p className="text-[10px] text-slate-400">{member.role}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleApproval(member.id)}
+                        className={`p-1.5 rounded-lg border transition-colors ${
+                          approvals[member.id] 
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
+                            : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300'
+                        }`}
+                      >
+                        {approvals[member.id] ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-current" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {allApproved && (
+                  <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-semibold text-emerald-700">All approvals granted</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Contextual Fields */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">Target Audience</label>
+                  <input
+                    type="text"
+                    value={targetAudience}
+                    onChange={(e) => setTargetAudience(e.target.value)}
+                    placeholder="e.g. Marketing managers, 25-45"
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">Campaign Objectives</label>
+                  <textarea
+                    value={campaignObjectives}
+                    onChange={(e) => setCampaignObjectives(e.target.value)}
+                    placeholder="Primary goals for this campaign..."
+                    className="w-full h-16 text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">Internal Notes</label>
+                  <textarea
+                    value={internalNotes}
+                    onChange={(e) => setInternalNotes(e.target.value)}
+                    placeholder="Private notes for team..."
+                    className="w-full h-16 text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Feedback & Comments Feed */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-2 block">Feedback & Comments ({selectedPost.comments.length})</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto mb-2">
+                  {selectedPost.comments.map(comment => (
+                    <div key={comment.id} className="bg-slate-50 p-2.5 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <img 
+                          src={comment.author.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author.name)}&background=6366f1&color=fff&size=32`} 
+                          alt={comment.author.name}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{comment.author.name}</p>
+                          <p className="text-[10px] text-slate-400">{comment.author.role}</p>
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(comment.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">{comment.text}</p>
+                    </div>
+                  ))}
+                  {selectedPost.comments.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4">No comments yet. Start the conversation.</p>
+                  )}
+                </div>
+                
+                {/* Add Comment Form */}
+                <form onSubmit={handleAddComment} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="flex-1 text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={!commentText.trim()}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Send
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                onClick={handleSaveEditorChanges}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* Empty state for collab panel when no post selected */}
+      {isCollabPanelOpen && !selectedPost && (
+        <aside className="w-80 border-l border-slate-200 bg-white flex flex-col h-screen shrink-0 shadow-sm">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Active Campaign</span>
             <button
               onClick={() => setIsCollabPanelOpen(false)}
               className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
@@ -1345,54 +1727,13 @@ export default function App() {
               <X className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Panel Content */}
-          {selectedPost ? (
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Status</p>
-                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusStyle(selectedPost.status).badge}`}>
-                    {getStatusStyle(selectedPost.status).text}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Content</p>
-                  <p className="text-sm text-slate-700">{selectedPost.content}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Platforms</p>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedPost.platforms.map(p => (
-                      <span key={p} className="text-xs bg-slate-100 px-2 py-0.5 rounded">{p}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-slate-100">
-                  <p className="text-xs font-semibold text-slate-500 mb-2">Comments ({selectedPost.comments.length})</p>
-                  {selectedPost.comments.length === 0 ? (
-                    <p className="text-xs text-slate-400">No comments yet</p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {selectedPost.comments.map(comment => (
-                        <div key={comment.id} className="bg-slate-50 p-2 rounded-lg">
-                          <div className="flex items-center gap-2 mb-1">
-                            <img src={comment.author.avatarUrl} alt={comment.author.name} className="w-6 h-6 rounded-full" />
-                            <p className="text-xs font-semibold">{comment.author.name}</p>
-                          </div>
-                          <p className="text-xs text-slate-600">{comment.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center">
+              <Info className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-700 mb-1">No Post Selected</p>
+              <p className="text-xs text-slate-500">Select a post from the dashboard to view and edit details.</p>
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <p className="text-sm text-slate-500 text-center">Select a post to view collaboration details</p>
-            </div>
-          )}
+          </div>
         </aside>
       )}
     </div>
