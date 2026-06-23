@@ -1010,7 +1010,7 @@ export default function App() {
       />
 
       {/* Main Bento container: Header + dynamic Grid view */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         {/* Top Header Section */}
         <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
@@ -1059,10 +1059,13 @@ export default function App() {
               {workspaceMembers.map(member => (
                 <img 
                   key={member.id}
-                  src={member.avatarUrl} 
+                  src={member.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random&size=40`} 
                   title={`${member.name} (${member.role})`}
                   className="w-7 h-7 rounded-full border-2 border-white object-cover"
                   alt={member.name}
+                  onError={(e) => {
+                    e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=6366f1&color=fff&size=40`;
+                  }}
                 />
               ))}
             </div>
@@ -1080,7 +1083,7 @@ export default function App() {
         </header>
 
         {/* Outer Main Bento Box View Wrapper */}
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-6">
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] p-6 scroll-smooth">
           
           {/* Active Workspace Banner Widget */}
           <div className="mb-5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1342,22 +1345,25 @@ export default function App() {
                                 <span className="text-[11px] text-slate-400 font-medium">Acme Corp Brand Pool</span>
                               </div>
 
-                              {/* Realistic Profile Metadata */}
+                              {/* Realistic Profile Metadata - uses acting user data */}
                               <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
                                   <img 
-                                    src="https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150" 
-                                    alt="Brand Avatar" 
+                                    src={actingUser?.avatarUrl || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150"} 
+                                    alt={actingUser?.name || "Brand Avatar"} 
                                     className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150";
+                                    }}
                                   />
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-slate-800 text-xs">Acme Corporation</span>
+                                    <span className="font-bold text-slate-800 text-xs">{actingUser?.name || "Acme Corporation"}</span>
                                     <span className="text-[10px] text-indigo-500">✓</span>
                                   </div>
                                   <span className="text-[10px] text-slate-400 block font-mono">
-                                    @acmecorp • Just now • {platformId.toUpperCase()}
+                                    @{actingUser?.name?.toLowerCase().replace(/\s+/g, '') || 'acmecorp'} • Just now • {platformId.toUpperCase()}
                                   </span>
                                 </div>
                               </div>
@@ -1443,23 +1449,26 @@ export default function App() {
               ) : (
                 <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   
-                  {/* Account Profile header mockup */}
-                  <div className="flex items-center gap-6 pb-6 mb-6 border-b border-slate-100">
-                    <img 
-                      src="https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150" 
-                      className="w-16 h-16 rounded-full border border-slate-200 object-cover"
-                      alt="Brand Account Avatar"
-                    />
-                    <div className="flex flex-col gap-1">
-                      <span className="text-lg font-bold text-slate-800">acme_corporation</span>
-                      <div className="flex gap-4 text-xs font-medium text-slate-500">
-                        <span><strong>16</strong> posts</span>
-                        <span><strong>24.6k</strong> followers</span>
-                        <span><strong>1.4k</strong> following</span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-700">Acme Corporation Sustainable Eco Tech 🌍</span>
-                    </div>
-                  </div>
+                   {/* Account Profile header mockup - uses real user data */}
+                   <div className="flex items-center gap-6 pb-6 mb-6 border-b border-slate-100">
+                     <img 
+                       src={actingUser?.avatarUrl || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=150"} 
+                       className="w-16 h-16 rounded-full border border-slate-200 object-cover"
+                       alt={actingUser?.name || "Brand Account Avatar"}
+                       onError={(e) => {
+                         e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=150";
+                       }}
+                     />
+                     <div className="flex flex-col gap-1">
+                       <span className="text-lg font-bold text-slate-800">{actingUser?.name?.toLowerCase().replace(/\s+/g, '_') || 'acme_corporation'}</span>
+                       <div className="flex gap-4 text-xs font-medium text-slate-500">
+                         <span><strong>{posts.length}</strong> posts</span>
+                         <span><strong>{Math.floor(posts.length * 1.5)}k</strong> followers</span>
+                         <span><strong>{workspaceMembers.length}</strong> following</span>
+                       </div>
+                       <span className="text-xs font-semibold text-slate-700">{currentWorkspace?.replace('ws-', '').toUpperCase() || 'ACME'} Corp Sustainable Eco Tech 🌍</span>
+                     </div>
+                   </div>
 
                   {/* 3x3 Photo grid preview matching authentic style */}
                   <div className="grid grid-cols-3 gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200/60" id="instagram-organic-grid">
