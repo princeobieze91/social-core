@@ -95,6 +95,22 @@ export default function App() {
     }
   }, []);
 
+  // After login, auto-connect Meta page if pageId was passed via Facebook auth
+  useEffect(() => {
+    const autoConnect = async () => {
+      if (!authToken || !currentUser) return;
+      const pageId = localStorage.getItem("auth0_page_id");
+      if (!pageId) return;
+      try {
+        await apiMetaConnect(pageId);
+        localStorage.removeItem("auth0_page_id");
+      } catch (e) {
+        console.error("Auto-connect Meta failed:", e);
+      }
+    };
+    autoConnect();
+  }, [authToken, currentUser]);
+
   useEffect(() => {
     const loadWorkspaces = async () => {
       if (!authToken) return;

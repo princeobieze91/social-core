@@ -19,11 +19,14 @@ const AUTH0_DOMAIN = "dev-qqpqoiss4wj2645r.us.auth0.com";
 const AUTH0_CLIENT_ID = "eDePEoBhBZA3tZOVx8N70QPWQAA4XSMy";
 const REDIRECT_URI = "https://social-core.onrender.com";
 
-function redirectToAuth0(connection: string) {
+function redirectToAuth0(connection: string, pageId?: string) {
   const state = Math.random().toString(36).substring(2);
   const nonce = Math.random().toString(36).substring(2);
   localStorage.setItem("auth0_state", state);
   localStorage.setItem("auth0_nonce", nonce);
+  localStorage.setItem("auth0_connection", connection);
+  if (pageId) localStorage.setItem("auth0_page_id", pageId);
+  else localStorage.removeItem("auth0_page_id");
   const url = `https://${AUTH0_DOMAIN}/authorize?client_id=${AUTH0_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token id_token&scope=openid profile email&connection=${connection}&state=${state}&nonce=${nonce}`;
   window.location.href = url;
 }
@@ -95,8 +98,13 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
       Instagram: "instagram",
       Facebook: "facebook"
     };
+    let pageId = undefined;
+    if (platformName === "Facebook") {
+      pageId = prompt("Enter your Facebook Page ID to auto-connect:");
+      if (!pageId) return;
+    }
     setSocialLoading(platformName);
-    redirectToAuth0(connectionMap[platformName]);
+    redirectToAuth0(connectionMap[platformName], pageId);
   };
 
   return (
