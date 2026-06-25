@@ -1,93 +1,46 @@
 // Social Platform Publisher: translates posts into platform-specific API payloads
 import { getChannelById } from '../db';
 
-const FB_API_VERSION = 'v19.0';
-const FB_BASE = `https://graph.facebook.com/${FB_API_VERSION}`;
-
 export interface PublishResult {
   success: boolean;
   native_post_id?: string;
   error?: string;
 }
 
-export async function publishToFacebook(channelId: string, text: string, mediaUrls?: string[]): Promise<PublishResult> {
+export async function publishViaMakeWebhook(channelId: string, text: string, mediaUrls?: string[]): Promise<PublishResult> {
   const channel = await getChannelById(channelId);
   if (!channel) return { success: false, error: 'Channel not found' };
-  if (!channel.page_id) return { success: false, error: 'No page ID configured for this channel' };
+
+  const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL;
+  if (!MAKE_WEBHOOK_URL) {
+    return { success: false, error: 'Make.com webhook URL not configured' };
+  }
 
   try {
-    const url = `${FB_BASE}/${channel.page_id}/feed`;
-    const payload: any = {
-      message: text,
-      access_token: channel.access_token
+    const payload = {
+      content: text,
+      mediaUrls: mediaUrls || [],
+      identifier: channel.page_id || channel.platform_user_id,
+      platform: channel.platform
     };
 
-    const res = await fetch(url, {
+    const res = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await res.json() as any;
 
-    if (data.error) {
-      return { success: false, error: data.error.message || 'Facebook API error' };
+    if (!res.ok) {
+      const errorText = await res.text();
+      return { success: false, error: `Make.com webhook failed: ${res.status} ${errorText}` };
     }
 
-    return { success: true, native_post_id: data.id };
+    return { success: true, native_post_id: `make-${Date.now()}-${channelId}` };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function publishToInstagram(channelId: string, text: string, mediaUrls?: string[]): Promise<PublishResult> {
-  const channel = await getChannelById(channelId);
-  if (!channel) return { success: false, error: 'Channel not found' };
-
-  if (!mediaUrls || mediaUrls.length === 0) {
-    return { success: false, error: 'Instagram requires at least one media attachment' };
-  }
-
-  try {
-    // Step 1: Create media container
-    const containerRes = await fetch(
-      `${FB_BASE}/${channel.page_id || 'me'}/media`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_url: mediaUrls[0],
-          caption: text,
-          access_token: channel.access_token
-        })
-      }
-    );
-    const containerData = await containerRes.json() as any;
-    if (containerData.error) {
-      return { success: false, error: containerData.error.message };
-    }
-
-    // Step 2: Publish the container
-    const publishRes = await fetch(
-      `${FB_BASE}/${channel.page_id || 'me'}/media_publish`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creation_id: containerData.id,
-          access_token: channel.access_token
-        })
-      }
-    );
-    const publishData = await publishRes.json() as any;
-    if (publishData.error) {
-      return { success: false, error: publishData.error.message };
-    }
-
-    return { success: true, native_post_id: publishData.id };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
-}
 
 export async function publishToLinkedIn(channelId: string, text: string, mediaUrls?: string[]): Promise<PublishResult> {
   const channel = await getChannelById(channelId);
@@ -146,9 +99,9 @@ export async function publishToLinkedIn(channelId: string, text: string, mediaUr
 export async function publishPost(channelId: string, platform: string, text: string, mediaUrls?: string[]): Promise<PublishResult> {
   switch (platform) {
     case 'facebook':
-      return publishToFacebook(channelId, text, mediaUrls);
+      return publishViaMakeWebhook(channelId, text, mediaUrls);
     case 'instagram':
-      return publishToInstagram(channelId, text, mediaUrls);
+      return publishViaMakeWebhook(channelId, text, mediaUrls);
     case 'linkedin':
       return publishToLinkedIn(channelId, text, mediaUrls);
     default:

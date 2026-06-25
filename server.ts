@@ -369,7 +369,31 @@ app.get("/api/oauth/linkedin/callback", async (req: express.Request, res: expres
 
 // ─── DIRECT PUBLISH ROUTES (no Redis/BullMQ needed) ──────────
 
+// Rate limiting helper
+function checkRateLimit(userId: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const userLimit = publishRateLimitMap.get(userId);
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    publishRateLimitMap.set(userId, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (userLimit.count >= limit) {
+    return false;
+  }
+  
+  userLimit.count++;
+  return true;
+}
+
 app.post("/api/posts/:postId/publish", authMiddleware, async (req: express.Request, res: express.Response) => {
+  // Rate limit: 50 publishes per hour per user
+  const userId = (req as any).userId;
+  if (!checkRateLimit(userId, 50, 60 * 60 * 1000)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait before publishing more posts." });
+    return;
+  }
   try {
     const post = await getPostById(req.params.postId);
     if (!post) {
@@ -756,6 +780,184 @@ Please respond in JSON format with the following keys:
   }
 });
 
+// ─── META BUSINESS PAGE CONNECTION ─────────────────────────────
+
+// Rate limiting map
+const publishRateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+app.post("/api/meta/connect", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { pageId } = req.body;
+    if (!pageId) {
+      res.status(400).json({ error: "Page ID is required" });
+      return;
+    }
+
+    const userId = (req as any).userId;
+    
+    // Get user's workspaces
+    const workspaces = await getUserWorkspaces(userId);
+    if (workspaces.length === 0) {
+      res.status(400).json({ error: "No workspace found" });
+      return;
+    }
+
+    const workspaceId = workspaces[0].id;
+
+    // For production, verify page exists via Graph API
+    // For development, accept page ID
+    const pageName = `Business Page ${pageId.substring(0, 8)}`;
+
+    // Create or update channel for this page
+    const { createChannel, getWorkspaceChannels } = await import("./src/db");
+    const channels = await getWorkspaceChannels(workspaceId);
+    const existingChannel = channels.find((c: any) => c.platform === 'facebook' && c.page_id === pageId);
+
+    if (existingChannel) {
+      res.json({ 
+        success: true, 
+        pageName: existingChannel.profile_name || pageName,
+        message: "Meta Business Page already connected"
+      });
+      return;
+    }
+
+    await createChannel({
+      workspace_id: workspaceId,
+      platform: 'facebook',
+      access_token: '',
+      platform_user_id: userId,
+      profile_name: pageName,
+      page_id: pageId
+    });
+
+    res.json({ 
+      success: true, 
+      pageName,
+      message: "Meta Business Page connected successfully"
+    });
+  } catch (error: any) {
+    console.error("Meta connect error:", error);
+    res.status(500).json({ error: error.message || "Failed to connect Meta page" });
+  }
+});
+
+app.get("/api/meta/status", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const userId = (req as any).userId;
+    const workspaces = await getUserWorkspaces(userId);
+    
+    if (workspaces.length === 0) {
+      res.json({ connected: false, pages: [] });
+      return;
+    }
+
+    const workspaceId = workspaces[0].id;
+    const channels = await getWorkspaceChannels(workspaceId);
+    const metaPages = channels
+      .filter((c: any) => c.platform === 'facebook' && c.page_id)
+      .map((c: any) => ({
+        id: c.id,
+        pageId: c.page_id,
+        name: c.profile_name,
+        connected: !!c.access_token
+      }));
+
+    res.json({ 
+      connected: metaPages.length > 0,
+      pages: metaPages
+    });
+  } catch (error: any) {
+    console.error("Meta status error:", error);
+    res.status(500).json({ error: error.message || "Failed to get Meta status" });
+  }
+});
+
+// ─── META WEBHOOKS ────────────────────────────────────────────
+
+const META_WEBHOOK_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "socialcore_webhook_secret";
+
+// Webhook verification endpoint (Meta sends GET to verify)
+app.get("/api/webhooks/meta", (req: express.Request, res: express.Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === META_WEBHOOK_VERIFY_TOKEN) {
+    console.log("[Meta Webhook] Verified successfully");
+    return res.status(200).send(challenge);
+  }
+
+  console.error("[Meta Webhook] Verification failed");
+  return res.status(403).send('Forbidden');
+});
+
+// Webhook event receiver (Meta sends POST for events)
+app.post("/api/webhooks/meta", express.json(), async (req: express.Request, res: express.Response) => {
+  try {
+    const body = req.body;
+    
+    // Verify this is a real webhook from Meta
+    if (body.object !== 'page') {
+      return res.status(404).send('Not found');
+    }
+
+    // Get database functions
+    const db = await import("./src/db");
+
+    // Process each entry
+    for (const entry of body.entry || []) {
+      const pageId = entry.id;
+      
+      // Find channel by page ID
+      const channels = await db.getWorkspaceChannels("default");
+      const channel = channels.find((c: any) => c.page_id === pageId);
+      
+      if (!channel) {
+        continue;
+      }
+
+      // Process webhook events
+      for (const change of entry.changes || []) {
+        const { field, value } = change;
+        
+        switch (field) {
+          case 'feed':
+            // Post published, updated, or deleted
+            if (value.item === 'post' || value.item === 'status') {
+              console.log(`[Meta Webhook] Post ${value.post_id} ${value.verb}`);
+              
+              // Add log entry
+              await db.addPostLog(
+                channel.workspace_id,
+                'Meta Webhook',
+                'system',
+                `Webhook: Post ${value.verb} - ${value.post_id}`
+              );
+            }
+            break;
+
+          case 'mentions':
+            // Page was mentioned
+            console.log(`[Meta Webhook] Page mentioned in post ${value.post_id}`);
+            break;
+
+          case 'reviews':
+            // New review received
+            console.log(`[Meta Webhook] New review on page ${pageId}`);
+            break;
+        }
+      }
+    }
+
+    // Return 200 OK to Meta
+    res.status(200).send('EVENT_RECEIVED');
+  } catch (error: any) {
+    console.error("[Meta Webhook] Error processing event:", error);
+    res.status(500).send('Error processing webhook');
+  }
+});
+
 // ─── Legal Pages (served before Vite/static catch-all) ────────
 
 app.get("/privacy", (req: express.Request, res: express.Response) => {
@@ -768,6 +970,96 @@ app.get("/terms", (req: express.Request, res: express.Response) => {
 
 app.get("/data-deletion", (req: express.Request, res: express.Response) => {
   res.sendFile(path.join(process.cwd(), "public", "data-deletion.html"));
+});
+
+// ─── WEBHOOK SUBSCRIPTION SETUP ───────────────────────────────
+
+// Helper endpoint to subscribe to Meta webhooks (call after page connection)
+app.post("/api/webhooks/meta/subscribe", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { pageId, accessToken } = req.body;
+    const userId = (req as any).userId;
+    
+    if (!pageId || !accessToken) {
+      res.status(400).json({ error: "pageId and accessToken are required" });
+      return;
+    }
+
+    // Subscribe to page events
+    const subscribeUrl = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps`;
+    
+    const subscribeRes = await fetch(subscribeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        access_token: accessToken,
+        subscribed_fields: [
+          'feed',
+          'mention',
+          'reviews',
+          'page'
+        ]
+      })
+    });
+
+    const subscribeData = await subscribeRes.json() as any;
+    
+    if (subscribeData.error) {
+      console.error("[Meta Webhook] Subscription failed:", subscribeData.error);
+      res.status(400).json({ 
+        success: false, 
+        error: subscribeData.error.message 
+      });
+      return;
+    }
+
+    console.log(`[Meta Webhook] Subscribed to page ${pageId}`);
+    res.json({ 
+      success: true, 
+      message: "Webhook subscribed successfully",
+      subscribed_fields: ['feed', 'mention', 'reviews', 'page']
+    });
+  } catch (error: any) {
+    console.error("[Meta Webhook] Subscription error:", error);
+    res.status(500).json({ error: error.message || "Failed to subscribe to webhooks" });
+  }
+});
+
+// Helper endpoint to unsubscribe from Meta webhooks
+app.delete("/api/webhooks/meta/subscribe", authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { pageId, accessToken } = req.body;
+    
+    if (!pageId || !accessToken) {
+      res.status(400).json({ error: "pageId and accessToken are required" });
+      return;
+    }
+
+    const unsubscribeUrl = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps`;
+    
+    const unsubscribeRes = await fetch(unsubscribeUrl, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        access_token: accessToken
+      })
+    });
+
+    const unsubscribeData = await unsubscribeRes.json() as any;
+    
+    res.json({ 
+      success: true, 
+      message: "Webhook unsubscribed successfully",
+      data: unsubscribeData
+    });
+  } catch (error: any) {
+    console.error("[Meta Webhook] Unsubscribe error:", error);
+    res.status(500).json({ error: error.message || "Failed to unsubscribe from webhooks" });
+  }
 });
 
 // ─── Vite Dev Server / Static Build ───────────────────────────

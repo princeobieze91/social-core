@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Trash2, X, Send, Facebook, Image, Video, FileText, LogOut } from "lucide-react";
+import { Plus, Search, Trash2, X, Send, Image, Video, FileText, LogOut } from "lucide-react";
 import LoginRegister from "./components/LoginRegister";
 import { SocialPost, TeamMember, PostAttachment } from "./types";
 import {
@@ -30,12 +30,9 @@ export default function App() {
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formContent, setFormContent] = useState("");
-  const [formPlatforms, setFormPlatforms] = useState<string[]>(["facebook"]);
+  const [formPlatforms, setFormPlatforms] = useState<string[]>(["instagram"]);
   const [formScheduledAt, setFormScheduledAt] = useState("");
   const [formAttachments, setFormAttachments] = useState<PostAttachment[]>([]);
-  const [metaConnected, setMetaConnected] = useState(false);
-  const [metaPageId, setMetaPageId] = useState("");
-  const [metaPageName, setMetaPageName] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -56,6 +53,48 @@ export default function App() {
     }
   }, [authToken]);
 
+
+  // Handle OAuth callback (Auth0, Facebook, etc.)
+  useEffect(() => {
+    const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    
+    // Check for Auth0 hash-based tokens
+    if (hash && hash.includes("access_token")) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const idToken = hashParams.get("id_token");
+
+      if (idToken) {
+        fetch("/api/auth/auth0", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, accessToken })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.token && data.user) {
+              setCurrentUser(data.user);
+              setAuthToken(data.token);
+              window.location.hash = "";
+              window.location.replace(window.location.pathname);
+            } else {
+              console.error("Auth0 login failed:", data.error);
+              window.location.hash = "";
+            }
+          })
+          .catch(e => {
+            console.error("Auth0 login failed:", e);
+            window.location.hash = "";
+          });
+      } else {
+        window.location.hash = "";
+      }
+      return;
+    }
+
+  }, []);
+
   // Load posts with real-time refresh
   useEffect(() => {
     if (!currentUser || !authToken) return;
@@ -68,7 +107,7 @@ export default function App() {
             id: p.id,
             title: p.title,
             content: p.content,
-            platforms: p.platforms || ["facebook"],
+            platforms: p.platforms || ["instagram"],
             status: p.status || "draft",
             scheduledAt: p.scheduled_at || p.created_at,
             attachments: (p.attachments || []).map((a: any) => ({
@@ -128,7 +167,7 @@ export default function App() {
       setEditingPost(null);
       setFormTitle("");
       setFormContent("");
-      setFormPlatforms(["facebook"]);
+        setFormPlatforms(["instagram"]);
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(10, 0, 0, 0);
@@ -219,13 +258,9 @@ export default function App() {
     }
   };
 
-  const handleBulkPublishMeta = async () => {
+  const handleBulkPublish = async () => {
     if (selectedPostIds.length === 0) {
       alert("Select posts to publish");
-      return;
-    }
-    if (!metaConnected) {
-      alert("Connect your Meta Business Page first");
       return;
     }
 
@@ -234,7 +269,7 @@ export default function App() {
 
     for (const postId of selectedPostIds) {
       const post = posts.find(p => p.id === postId);
-      if (!post || !post.platforms.includes("facebook")) continue;
+      if (!post) continue;
 
       setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, status: "publishing" as const } : p));
       
@@ -257,28 +292,6 @@ export default function App() {
     setSelectedPostIds([]);
     setLastUpdated(new Date());
     alert("Bulk Publish Results:\n\n" + results.join("\n"));
-  };
-
-  const handleConnectMeta = async () => {
-    try {
-      const response = await fetch("/api/meta/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId: metaPageId }),
-      });
-
-      if (!response.ok) throw new Error("Failed to connect Meta page");
-
-      const data = await response.json();
-      setMetaConnected(true);
-      setMetaPageName(data.pageName || "Connected Page");
-      alert("Meta Business Page connected successfully!");
-    } catch (e: any) {
-      // Demo mode
-      setMetaConnected(true);
-      setMetaPageName(metaPageId || "My Business Page");
-      alert("Meta Business Page connected (demo mode)");
-    }
   };
 
   const togglePostSelection = (id: string) => {
@@ -318,37 +331,11 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-900">SocialCore</h1>
-            <span className="text-xs text-slate-500">Bulk Post & Meta Business Tool</span>
+            <span className="text-xs text-slate-500">Bulk Social Publisher</span>
             <span className="text-xs text-slate-400">Updated: {lastUpdated.toLocaleTimeString()}</span>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Meta Connection */}
-            <div className="flex items-center gap-2">
-              <Facebook className="w-5 h-5 text-blue-600" />
-              {metaConnected ? (
-                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
-                  Connected: {metaPageName}
-                </span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Meta Page ID"
-                    value={metaPageId}
-                    onChange={(e) => setMetaPageId(e.target.value)}
-                    className="text-xs px-2 py-1 border border-slate-200 rounded"
-                  />
-                  <button
-                    onClick={handleConnectMeta}
-                    className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Connect
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* User */}
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-slate-700">{currentUser.name}</span>
@@ -392,13 +379,6 @@ export default function App() {
             <p className="text-2xl font-bold text-slate-900">{postCountsObj.published}</p>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-slate-200">
-            <div className="flex items-center gap-2 mb-1">
-              <Facebook className="w-4 h-4 text-blue-600" />
-              <span className="text-xs text-slate-500">Meta Status</span>
-            </div>
-            <p className="text-sm font-bold text-slate-900">{metaConnected ? "Connected" : "Not Connected"}</p>
-          </div>
         </div>
 
         {/* Actions Bar */}
@@ -414,12 +394,12 @@ export default function App() {
               </button>
 
               <button
-                onClick={handleBulkPublishMeta}
-                disabled={selectedPostIds.length === 0 || !metaConnected || isPublishing}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleBulkPublish}
+                disabled={selectedPostIds.length === 0 || isPublishing}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
-                {isPublishing ? "Publishing..." : "Publish to Meta"}
+                {isPublishing ? "Publishing..." : "Publish Selected"}
               </button>
 
               <button

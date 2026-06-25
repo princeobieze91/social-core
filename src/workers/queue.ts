@@ -11,7 +11,6 @@ import {
   updatePost
 } from '../db';
 import { publishPost } from './publisher';
-import { refreshFacebookToken } from '../oauth/facebook';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -69,14 +68,6 @@ export const publishWorker = new Worker(
       // Try to publish
       let result = await publishPost(channel.id, platform, post.content);
 
-      // If token expired, try refresh and retry once
-      if (!result.success && result.error?.includes('expired')) {
-        console.log(`[Worker] Token expired for channel ${channel.id}, attempting refresh...`);
-        const newToken = await refreshFacebookToken(channel.id);
-        if (newToken) {
-          result = await publishPost(channel.id, platform, post.content);
-        }
-      }
 
       results.push({ platform, ...result });
     }

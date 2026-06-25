@@ -19,13 +19,6 @@ const PROVIDER_CONFIG: Record<string, {
     connection: "google-oauth2",
     scopes: ["View your name", "View your email address", "View your profile picture"]
   },
-  facebook: {
-    name: "Facebook",
-    color: "from-blue-600 to-blue-400",
-    icon: "f",
-    connection: "facebook",
-    scopes: ["View your name", "View your email address", "View your profile picture", "Access your friends list"]
-  },
   instagram: {
     name: "Instagram",
     color: "from-purple-600 via-pink-500 to-orange-400",
@@ -77,7 +70,7 @@ export default function OAuthConsent({ provider, onBack }: OAuthConsentProps) {
             <div>
               <p className="text-sm font-bold text-slate-800">SocialCore Hub</p>
               <p className="text-[11px] text-slate-500">social-core.onrender.com</p>
-              <p className="text-[9px] text-slate-400 mt-0.5 font-mono">App ID: 2042167676670243</p>
+              <p className="text-[9px] text-slate-400 mt-0.5 font-mono">Powered by Make.com</p>
             </div>
           </div>
 

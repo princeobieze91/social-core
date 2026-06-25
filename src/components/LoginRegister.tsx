@@ -9,7 +9,6 @@ import {
   Check, 
   Info,
   Shield,
-  Facebook,
   Instagram
 } from "lucide-react";
 import { TeamMember } from "../types";
@@ -90,12 +89,11 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
     }
   };
 
-  const handleSocialAuth = async (platformName: "Google" | "Facebook" | "Instagram") => {
+  const handleSocialAuth = async (platformName: "Google" | "Instagram") => {
     setErrorMsg("");
     setSuccessMsg("");
     const connectionMap: Record<string, string> = {
       Google: "google-oauth2",
-      Facebook: "facebook",
       Instagram: "instagram"
     };
     redirectToAuth0(connectionMap[platformName]);
@@ -103,7 +101,6 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
 
   const getActiveSocialLoadingMessage = () => {
     if (socialLoading === "Google") return "Establishing handshake with Google Accounts API...";
-    if (socialLoading === "Facebook") return "Validating Facebook Security Profiles Token...";
     if (socialLoading === "Instagram") return "Requesting Instagram Creator Permissions...";
     if (socialLoading === "credentials") return isLogin ? "Verifying workspace authorization..." : "Securing registration database...";
     return "Authenticating...";
@@ -192,34 +189,25 @@ export default function LoginRegister({ onLoginSuccess }: LoginRegisterProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2.5 mb-6">
-            <button
-              onClick={() => handleSocialAuth("Google")}
-              type="button"
-              className="flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition-all cursor-pointer shadow-xs"
-            >
-              <span className="text-base font-bold text-red-500">G</span>
-              <span>Google</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2.5 mb-6">
+              <button
+                onClick={() => handleSocialAuth("Google")}
+                type="button"
+                className="flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition-all cursor-pointer shadow-xs"
+              >
+                <span className="text-base font-bold text-red-500">G</span>
+                <span>Google</span>
+              </button>
 
-            <button
-              onClick={() => handleSocialAuth("Facebook")}
-              type="button"
-              className="flex items-center justify-center gap-1.5 py-2.5 border border-blue-200 bg-blue-50/20 hover:bg-blue-50 rounded-xl text-xs font-bold text-blue-700 transition-all cursor-pointer"
-            >
-              <Facebook className="w-3.5 h-3.5 fill-blue-600 stroke-none" />
-              <span>Facebook</span>
-            </button>
-
-            <button
-              onClick={() => handleSocialAuth("Instagram")}
-              type="button"
-              className="flex items-center justify-center gap-1.5 py-2.5 border border-purple-200 bg-purple-50/20 hover:bg-purple-50 rounded-xl text-xs font-bold text-purple-700 transition-all cursor-pointer"
-            >
-              <Instagram className="w-3.5 h-3.5 text-purple-600 stroke-width-[2.5]" />
-              <span>Instagram</span>
-            </button>
-          </div>
+              <button
+                onClick={() => handleSocialAuth("Instagram")}
+                type="button"
+                className="flex items-center justify-center gap-1.5 py-2.5 border border-purple-200 bg-purple-50/20 hover:bg-purple-50 rounded-xl text-xs font-bold text-purple-700 transition-all cursor-pointer"
+              >
+                <Instagram className="w-3.5 h-3.5 text-purple-600 stroke-width-[2.5]" />
+                <span>Instagram</span>
+              </button>
+            </div>
 
           <div className="relative flex py-2 items-center mb-5">
             <div className="flex-grow border-t border-slate-200"></div>

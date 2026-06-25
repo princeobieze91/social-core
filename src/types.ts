@@ -2,7 +2,7 @@ export interface SocialPost {
   id: string;
   title: string;
   content: string;
-  platforms: string[]; // ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok']
+  platforms: string[];
   status: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published' | 'publishing' | 'failed';
   scheduledAt: string; // ISO date-time string
   attachments: PostAttachment[];
