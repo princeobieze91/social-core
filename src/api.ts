@@ -3,7 +3,7 @@ import { SocialPost, PostComment, PostAttachment } from "./types";
 const API_BASE = "";
 
 function getToken(): string | null {
-  return localStorage.getItem("socialcore_auth_token");
+  return localStorage.getItem("socialcore_token");
 }
 
 async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -84,6 +84,18 @@ export async function apiDeleteChannel(channelId: string) {
   return apiRequest<{ success: boolean }>(`/api/channels/${channelId}`, {
     method: "DELETE",
   });
+}
+
+export async function apiMetaConnect(pageId: string) {
+  return apiRequest<{ success: boolean; pageName: string; message: string }>("/api/meta/connect", {
+    method: "POST",
+    body: JSON.stringify({ pageId }),
+  });
+}
+
+export async function apiLinkedInAuth(workspaceId: string) {
+  const url = `/api/oauth/linkedin/auth?workspace_id=${workspaceId}`;
+  window.location.href = url;
 }
 
 // ─── Posts ────────────────────────────────────────────────────
