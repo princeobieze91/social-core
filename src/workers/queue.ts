@@ -20,6 +20,8 @@ const connection: any = new IORedis(REDIS_URL, {
   enableReadyCheck: false
 });
 
+connection.on('error', () => {});
+
 // ─── Queue ────────────────────────────────────────────────────
 
 export const publishQueue = new Queue('publish-posts', {

@@ -12,6 +12,8 @@ const connection: any = new IORedis(REDIS_URL, {
   enableReadyCheck: false
 });
 
+connection.on('error', () => {});
+
 const SCANNER_INTERVAL = 60000; // 60 seconds
 
 let scanTimer: NodeJS.Timeout | null = null;
