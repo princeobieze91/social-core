@@ -36,7 +36,6 @@ import {
   markPostPublished,
   markPostFailed,
 } from "./src/db";
-import { getFacebookAuthUrl, handleFacebookCallback, refreshFacebookToken } from "./src/oauth/facebook";
 import { getLinkedInAuthUrl, handleLinkedInCallback } from "./src/oauth/linkedin";
 import { publishPost } from "./src/workers/publisher";
 
@@ -309,35 +308,6 @@ app.delete("/api/channels/:id", authMiddleware, async (req: express.Request, res
 
 // ─── OAUTH CHANNEL CONNECTION ─────────────────────────────────
 
-app.get("/api/oauth/facebook/auth", authMiddleware, (req: express.Request, res: express.Response) => {
-  const workspaceId = req.query.workspace_id as string;
-  if (!workspaceId) {
-    res.status(400).json({ error: "workspace_id query parameter is required" });
-    return;
-  }
-  const redirectUri = `${APP_URL}/api/oauth/facebook/callback`;
-  const url = getFacebookAuthUrl(workspaceId, redirectUri);
-  res.redirect(url);
-});
-
-app.get("/api/oauth/facebook/callback", async (req: express.Request, res: express.Response) => {
-  try {
-    const code = req.query.code as string;
-    const stateRaw = req.query.state as string;
-    if (!code || !stateRaw) {
-      res.status(400).send("Missing code or state parameter");
-      return;
-    }
-    const state = JSON.parse(Buffer.from(stateRaw, "base64url").toString());
-    const redirectUri = `${APP_URL}/api/oauth/facebook/callback`;
-    await handleFacebookCallback(code, state.workspace_id, redirectUri);
-    res.redirect(`${APP_URL}?oauth_success=facebook`);
-  } catch (error: any) {
-    console.error("Facebook OAuth callback error:", error);
-    res.redirect(`${APP_URL}?oauth_error=${encodeURIComponent(error.message)}`);
-  }
-});
-
 app.get("/api/oauth/linkedin/auth", authMiddleware, (req: express.Request, res: express.Response) => {
   const workspaceId = req.query.workspace_id as string;
   if (!workspaceId) {
@@ -413,15 +383,6 @@ app.post("/api/posts/:postId/publish", authMiddleware, async (req: express.Reque
       }
 
       let result = await publishPost(channel.id, platform, post.content, mediaUrls);
-
-      // If token expired, try refresh and retry once
-      if (!result.success && result.error?.includes('expired')) {
-        console.log(`[Publish] Token expired for ${platform} channel ${channel.id}, attempting refresh...`);
-        const newToken = await refreshFacebookToken(channel.id);
-        if (newToken) {
-          result = await publishPost(channel.id, platform, post.content, mediaUrls);
-        }
-      }
 
       results.push({ platform, channel_name: channel.profile_name, ...result });
     }
@@ -794,8 +755,6 @@ app.post("/api/meta/connect", authMiddleware, async (req: express.Request, res: 
     }
 
     const userId = (req as any).userId;
-    
-    // Get user's workspaces
     const workspaces = await getUserWorkspaces(userId);
     if (workspaces.length === 0) {
       res.status(400).json({ error: "No workspace found" });
@@ -803,22 +762,13 @@ app.post("/api/meta/connect", authMiddleware, async (req: express.Request, res: 
     }
 
     const workspaceId = workspaces[0].id;
-
-    // For production, verify page exists via Graph API
-    // For development, accept page ID
     const pageName = `Business Page ${pageId.substring(0, 8)}`;
 
-    // Create or update channel for this page
-    const { createChannel, getWorkspaceChannels } = await import("./src/db");
     const channels = await getWorkspaceChannels(workspaceId);
     const existingChannel = channels.find((c: any) => c.platform === 'facebook' && c.page_id === pageId);
 
     if (existingChannel) {
-      res.json({ 
-        success: true, 
-        pageName: existingChannel.profile_name || pageName,
-        message: "Meta Business Page already connected"
-      });
+      res.json({ success: true, pageName: existingChannel.profile_name || pageName, message: "Meta Business Page already connected" });
       return;
     }
 
@@ -831,11 +781,7 @@ app.post("/api/meta/connect", authMiddleware, async (req: express.Request, res: 
       page_id: pageId
     });
 
-    res.json({ 
-      success: true, 
-      pageName,
-      message: "Meta Business Page connected successfully"
-    });
+    res.json({ success: true, pageName, message: "Meta Business Page connected successfully" });
   } catch (error: any) {
     console.error("Meta connect error:", error);
     res.status(500).json({ error: error.message || "Failed to connect Meta page" });
